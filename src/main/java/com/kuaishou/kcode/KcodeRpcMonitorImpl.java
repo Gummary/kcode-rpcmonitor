@@ -5,8 +5,11 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,7 +22,9 @@ import java.util.concurrent.TimeUnit;
 
 
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
-import com.kuaishou.kcode.handler.WriteRPCMessageHandler;
+import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
+import com.kuaishou.kcode.model.FileRPCMessage;
+import com.kuaishou.kcode.model.SuccessRate;
 
 /**
  * @author kcode
@@ -39,9 +44,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
 	public RandomAccessFile rpcDataFile;
 	public FileChannel rpcDataFileChannel;
-	
+	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>>> range2MessageMap;
+	private ConcurrentHashMap<String, SuccessRate> range3Result;
 	private DirectMemoryBlockHandler directMemoryBlockHandler;
-	private WriteRPCMessageHandler[] writeRPCMessageHandlers = new WriteRPCMessageHandler[CORE_THREAD_NUM];
+	private BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
 	private MappedByteBuffer[] blocks = new MappedByteBuffer[2];
 	private int MaxBlockSize = 0;//总共要读的块数
 	private int curBlockIdx = 0;//当前读到的block数
@@ -49,13 +55,15 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
 	MappedByteBuffer curBlock = null;
 	private Object lockObject = new Object();//更新下一个任务时的锁
+	private Object range2lockObject = new Object(); //
+	private Object range3lockObject = new Object();
 	
-	private BlockingQueue<WriteRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<WriteRPCMessageHandler>();
+	private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
     // 不要修改访问级别
     public KcodeRpcMonitorImpl() {
-    	
+    	range3Result = new ConcurrentHashMap<String, SuccessRate>();
     	for(int i = 0; i < writeRPCMessageHandlers.length; i++) {
-    		writeRPCMessageHandlers[i] = new WriteRPCMessageHandler(this);
+    		writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result, range2lockObject, range3lockObject);
     	}
     }
 
@@ -82,11 +90,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				getCurrentIdxAndUpdateIt(writeRPCMessageHandlers[i]);
 			}
 			while(curBlockIdx < MaxBlockSize) {
-				WriteRPCMessageHandler writeRPCMessageHandler = readyedMessageHandlers.poll();
+				BuildRPCMessageHandler writeRPCMessageHandler = readyedMessageHandlers.poll();
 				if(writeRPCMessageHandler.isBeyondTwoBlock()) {
 					curBlockIdx++;
 				}
-				blockHandlerPool.submit(writeRPCMessageHandler);
+				rpcMessageFileHandlerPool.submit(writeRPCMessageHandler);
 				//异步任务：当目前block处理字节数大于阈值时，读取下一个block
 				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD) { //需要加载下一个block的数据
 					directMemoryBlockHandler.setStartPosition(curBlockIdx * BLOCK_SIZE);
@@ -125,7 +133,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
      * 如果这个读取任务超过两个Block，那么更新blocks数组的设置（1 -> 0后1 -> null）及WriteRPCMessageHandler的标志位true
      * @param writeRPCMessageHandler
      */
-    public void getCurrentIdxAndUpdateIt(WriteRPCMessageHandler writeRPCMessageHandler) { 
+    public void getCurrentIdxAndUpdateIt(BuildRPCMessageHandler writeRPCMessageHandler) { 
     	synchronized (lockObject) {
     		boolean isBeyondTwoBatch = false;
     		writeRPCMessageHandler.setTargetBuffer(curBlock);

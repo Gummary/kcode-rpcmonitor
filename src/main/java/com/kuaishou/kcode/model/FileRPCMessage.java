@@ -1,0 +1,19 @@
+package com.kuaishou.kcode.model;
+
+public class FileRPCMessage {
+	public int useTime;
+	public String message;
+	
+	public FileRPCMessage(int useTime, String mainService, String mainIP, String calledIP, int isSuccess) {
+		super();
+		this.useTime = useTime;
+		StringBuilder builder = new StringBuilder();
+		builder.append(useTime).append(',').append(mainService).append('-')
+			.append(mainIP).append('-').append(calledIP).append(',')
+			.append(isSuccess);
+		this.message = builder.toString();
+	}
+	
+	
+	
+}
