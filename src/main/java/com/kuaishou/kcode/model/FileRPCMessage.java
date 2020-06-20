@@ -8,7 +8,7 @@ public class FileRPCMessage {
 		super();
 		this.useTime = useTime;
 		StringBuilder builder = new StringBuilder();
-		builder.append(useTime).append(',').append(mainService).append('-')
+		builder.append(useTime).append(',').append(mainService).append(',')
 			.append(mainIP).append('-').append(calledIP).append(',')
 			.append(isSuccess);
 		this.message = builder.toString();
