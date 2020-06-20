@@ -8,3 +8,5 @@
 target
 MANIFEST.MF
 .gitlab-ci.yml
+2kcodeRpcMonitor.*
+bin
