@@ -1,6 +1,6 @@
 package com.kuaishou.kcode.model;
 
-public class FileRPCMessage {
+public class FileRPCMessage implements Comparable<FileRPCMessage>{
 	public int useTime;
 	public String message;
 	
@@ -12,6 +12,14 @@ public class FileRPCMessage {
 			.append(mainIP).append('-').append(calledIP).append(',')
 			.append(isSuccess);
 		this.message = builder.toString();
+	}
+
+	
+
+	@Override
+	public int compareTo(FileRPCMessage o) {
+		
+		return this.useTime - o.useTime;
 	}
 	
 	

@@ -39,9 +39,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private static final int CORE_THREAD_NUM = 5;
 	private static final int MAX_THREAD_NUM = 5;
 	private static final long TIME_OUT = 80;    
-	private static final ExecutorService rpcMessageFileHandlerPool = new ThreadPoolExecutor(
+	private static final ExecutorService rpcMessageHandlerPool = new ThreadPoolExecutor(
 			CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
 	private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
+	private static final ExecutorService writeToFileHandlerPool = Executors.newCachedThreadPool();
 	public RandomAccessFile rpcDataFile;
 	public FileChannel rpcDataFileChannel;
 	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>>> range2MessageMap;
@@ -55,6 +56,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
 	MappedByteBuffer curBlock = null;
 	private Object lockObject = new Object();//更新下一个任务时的锁
+	
 	private Object range2lockObject = new Object(); //
 	private Object range3lockObject = new Object();
 	
@@ -94,7 +96,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				if(writeRPCMessageHandler.isBeyondTwoBlock()) {
 					curBlockIdx++;
 				}
-				rpcMessageFileHandlerPool.submit(writeRPCMessageHandler);
+				rpcMessageHandlerPool.submit(writeRPCMessageHandler);
 				//异步任务：当目前block处理字节数大于阈值时，读取下一个block
 				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD) { //需要加载下一个block的数据
 					directMemoryBlockHandler.setStartPosition(curBlockIdx * BLOCK_SIZE);
@@ -186,5 +188,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     }
     public void setNextBlock(MappedByteBuffer block) {
     	blocks[1] = block;
+    }
+    
+    public void writeMinuteRPCMEssgaeToFile(int Minute) {
+    	
     }
 }
