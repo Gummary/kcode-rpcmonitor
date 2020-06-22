@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.kuaishou.kcode.KcodeRpcMonitorImpl;
 import com.kuaishou.kcode.model.FileRPCMessage;
+import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.SuccessRate;
 
 public class BuildRPCMessageHandler implements Runnable{
@@ -16,8 +17,8 @@ public class BuildRPCMessageHandler implements Runnable{
 	private MappedByteBuffer targetBuffer;
 	private int startIndex;
 	private int length;
-	private ConcurrentHashMap<String, SuccessRate> range3Result;
-	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>>> range2MessageMap;
+	private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
+	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
 	private Object range2lockObject;
 	private Object range3lockObject;
 	
@@ -32,12 +33,12 @@ public class BuildRPCMessageHandler implements Runnable{
 	 * 因为一个batch中数据基本为同一个分钟时间戳，所以做个缓存
 	 */
 	private int cachedMinute = -1;
-	private ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>> cachedMap;
+	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
 			
 	
 	public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode, 
-			ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>>> range2MessageMap,
-			ConcurrentHashMap<String, SuccessRate> range3Result,
+			ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
+			ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result,
 			Object range2lockObject, Object range3lockObject){
 		this.kcode = kcode;
 		this.range2MessageMap = range2MessageMap;
@@ -143,46 +144,70 @@ public class BuildRPCMessageHandler implements Runnable{
 		int isSuccess = buildBoolean(buffer, splitIdxList[3] + 1);
 		int useTime = buildInt(buffer, splitIdxList[4] + 1, splitIdxList[5]);
 		int secondTimeStamp = buildMinuteTimeStamp(buffer, splitIdxList[5] + 1);
-		String range3Key = new StringBuilder().append(calledService).append("-").append(secondTimeStamp).toString();
+		//String range3Key = new StringBuilder().append(calledService).append("-").append(secondTimeStamp).toString();
 		
-		//二阶段落盘
+		//二阶段统计
 		if(cachedMinute != secondTimeStamp) {
 			cachedMinute = secondTimeStamp;
 			cachedMap = range2MessageMap.get(secondTimeStamp);
 			if(cachedMap == null) {
 				synchronized (range2lockObject) {
 					if(!range2MessageMap.containsKey(secondTimeStamp)) {
-						cachedMap = new ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>>();
+						cachedMap = new ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>();
 						range2MessageMap.put(secondTimeStamp, cachedMap);
 					}else {
 						cachedMap = range2MessageMap.get(secondTimeStamp);
 					}
 				}
-				//TODO 此时为读到新的一分钟时间戳的数据，让2分钟前的落盘
+				//TODO 此时为读到新的一分钟时间戳的数据
 			}
 		}
-		
-		ConcurrentLinkedQueue<FileRPCMessage> messageList = cachedMap.get(calledService);//, new FileRPCMessage())
-		if(messageList == null) {
+		String range2Key = new StringBuilder().append(mainService).append('-').append(calledService).toString();
+		ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
+		if(ipResult == null) {
 			synchronized (range2lockObject) {
-				if(!cachedMap.containsKey(calledService)) {
-					messageList = new ConcurrentLinkedQueue<FileRPCMessage>();
-					cachedMap.put(calledService, messageList);
+				if(!cachedMap.containsKey(range2Key)) {
+					ipResult = new ConcurrentHashMap<String, Range2Result>();
+					cachedMap.put(range2Key, ipResult);
 				}else {
-					messageList = cachedMap.get(calledService);
+					ipResult = cachedMap.get(range2Key);
 				}
 			}
 		}
-		messageList.add(new FileRPCMessage(useTime, mainService, mainIP, calledIP, isSuccess));
+		String range2IPKey = new StringBuilder().append(mainIP).append('-').append(calledIP).toString();
+		Range2Result result = ipResult.get(range2IPKey);
+		if(result == null) {
+			synchronized (range2lockObject) {
+				if(!ipResult.containsKey(range2IPKey)) {
+					result = new Range2Result(mainIP, calledIP);
+					ipResult.put(range2IPKey, result);
+				}else {
+					result = ipResult.get(range2IPKey);
+				}
+			}
+		}
+		result.fillMessage(isSuccess, useTime);
+		
 		//三阶段统计
-		SuccessRate successRate = range3Result.get(range3Key);
+		ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
+		if(successRateMap == null) {
+			synchronized (range3lockObject) {
+				if(!range3Result.containsKey(calledService)) {
+					successRateMap = new ConcurrentHashMap<Integer, SuccessRate>();
+					range3Result.put(calledService, successRateMap);
+				}else {
+					successRateMap = range3Result.get(calledService);
+				}
+			}
+		}
+		SuccessRate successRate = successRateMap.get(secondTimeStamp);
 		if(successRate == null) {
 			synchronized (range3lockObject) {
-				if(!range3Result.containsKey(range3Key)) {
+				if(!successRateMap.containsKey(secondTimeStamp)) {
 					successRate = new SuccessRate();
-					range3Result.put(range3Key, successRate);
+					successRateMap.put(secondTimeStamp, successRate);
 				}else {
-					successRate = range3Result.get(range3Key);
+					successRate = successRateMap.get(secondTimeStamp);
 				}
 			}
 		}
