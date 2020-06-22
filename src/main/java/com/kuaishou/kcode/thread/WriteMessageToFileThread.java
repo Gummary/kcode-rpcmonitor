@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import com.kuaishou.kcode.model.FileRPCMessage;
 
 
-
+@Deprecated
 public class WriteMessageToFileThread extends Thread{
 	public static final String FILE_ROOT_PATH = "/tmp/";
  	private ExecutorService pool;

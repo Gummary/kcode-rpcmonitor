@@ -4,9 +4,14 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.text.DecimalFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -20,11 +25,14 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.soap.Node;
 
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.model.FileRPCMessage;
+import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.SuccessRate;
+import com.kuaishou.kcode.thread.WriteMessageToFileThread;
 
 /**
  * @author kcode
@@ -45,8 +53,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private static final ExecutorService writeToFileHandlerPool = Executors.newCachedThreadPool();
 	public RandomAccessFile rpcDataFile;
 	public FileChannel rpcDataFileChannel;
-	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>>> range2MessageMap;
-	private ConcurrentHashMap<String, SuccessRate> range3Result;
+	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
+	private ConcurrentHashMap<String, RandomAccessFile> files = new ConcurrentHashMap<String, RandomAccessFile>();
+	private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
 	private DirectMemoryBlockHandler directMemoryBlockHandler;
 	private BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
 	private MappedByteBuffer[] blocks = new MappedByteBuffer[2];
@@ -63,7 +72,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
     // 不要修改访问级别
     public KcodeRpcMonitorImpl() {
-    	range3Result = new ConcurrentHashMap<String, SuccessRate>();
+    	range3Result = new ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>>();
     	for(int i = 0; i < writeRPCMessageHandlers.length; i++) {
     		writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result, range2lockObject, range3lockObject);
     	}
@@ -115,11 +124,60 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     }
 
     public List<String> checkPair(String caller, String responder, String time) {
+    	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    	ArrayList<String> result = new ArrayList<String>();
+    	try {
+			int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
+			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(minuteTimeStamp);
+			if(functionMap != null) {
+				String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
+				ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
+				 Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
+				 while(iterator.hasNext()) {
+					 Range2Result node = iterator.next().getValue();
+					 StringBuilder builder = new StringBuilder();
+					 
+					 
+					 builder.append(node.mainIP).append(',')
+					 	.append(node.calledIP).append(',')
+					 	.append(node.computeP99()).append(',')
+					 	.append(node.computeSuccessRate());
+					 result.add(builder.toString());
+				 }
+			}
+			
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+    	
         return new ArrayList<String>();
     }
 
     public String checkResponder(String responder, String start, String end) {
-        return "0.00%";
+    	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    	String result = ".00%";
+    	try {
+			int startTimeStamp = (int)(simpleDateFormat.parse(start).getTime() / 60000);
+			int endTimeStamp = (int)(simpleDateFormat.parse(end).getTime() / 60000);
+			ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(responder);
+			double rate = 0.0d;
+			int count = 0;
+			for (int i = startTimeStamp; i < endTimeStamp; i++) {
+				SuccessRate successRate = successRateMap.get(i);
+				if(successRate != null){
+					rate += (double)successRate.success.get() / successRate.total.get();
+					count++;
+				}
+			}
+			double resultDouble = (int)(rate * 100 / count) / 100;
+			if(resultDouble - 0.0d >= 10e-2) {
+				result = resultDouble + "%";
+			}
+			
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+        return result;
     }
     
     /**
@@ -183,7 +241,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	blocks[1] = block;
     }
     
+    @Deprecated
     public void writeMinuteRPCMEssgaeToFile(int Minute) {
-    	
+//    	ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>> minuteMap = range2MessageMap.get(Minute);
+//    	if(minuteMap == null) {
+//    		new WriteMessageToFileThread(writeToFileHandlerPool, minuteMap, files, Minute).start();
+//    	}
     }
 }
