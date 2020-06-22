@@ -52,7 +52,7 @@ public class BuildRPCMessageHandler implements Runnable{
 		int countSpiltIdx = 0;
 		byte curByte;
 		int messageStart = startIndex;
-		//读的时候一定用 startIndex + length > targetBuffer.cap 确定处理的内容是否跨了两个block 
+		// 读的时候一定用 startIndex + length > targetBuffer.cap 确定处理的内容是否跨了两个block 
 		//（这样做是为了在【特殊情况】最后一个batch虽然没有appendBuffer但是iSBeyondTwoBlock置位了的情况下也能正常处理数据）
 		if(startIndex + length > targetBuffer.capacity()) {
 			//读第一段

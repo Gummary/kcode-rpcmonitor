@@ -33,8 +33,8 @@ import com.kuaishou.kcode.model.SuccessRate;
  */
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
-	public static final int BLOCK_SIZE = 500 * 1024 * 1024;
-	public static final int MESSAGE_BATCH_SIZE = 5 * 1024 * 1024;
+	public static final int BLOCK_SIZE = 500 * 1024 * 1024; // 每次读的block大小，多个线程同时处理该block
+	public static final int MESSAGE_BATCH_SIZE = 5 * 1024 * 1024;   // 每个线程处理的数据量
 	private static final int LOAD_BLOCK_THRESHOLD = 4 * 1024 * 1024;
 	private static final int CORE_THREAD_NUM = 5;
 	private static final int MAX_THREAD_NUM = 5;
@@ -108,9 +108,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 					blockHandlerPool.submit(directMemoryBlockHandler);
 				}
 			}
-			
-			
-
 		} catch (InterruptedException | ExecutionException | IOException e) {
 			System.out.println(e.getMessage());
 		}
@@ -125,13 +122,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         return "0.00%";
     }
     
-    
-    
-    
-    
-    
     /**
      * 当前WriteRPCMessageHandler获得自己的读取任务
+     * 设置该writeRPCMessageHandler在当前block中处理的数据范围
      * 如果这个读取任务超过两个Block，那么更新blocks数组的设置（1 -> 0后1 -> null）及WriteRPCMessageHandler的标志位true
      * @param writeRPCMessageHandler
      */
