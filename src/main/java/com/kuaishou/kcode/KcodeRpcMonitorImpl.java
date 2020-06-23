@@ -41,19 +41,19 @@ import com.kuaishou.kcode.thread.WriteMessageToFileThread;
  */
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
+	
 	public static final int BLOCK_SIZE = 500 * 1024 * 1024;
 	public static final int MESSAGE_BATCH_SIZE = 5 * 1024 * 1024;
-	private static final int LOAD_BLOCK_THRESHOLD = 4 * 1024 * 1024;
+	private static final int LOAD_BLOCK_THRESHOLD = 400 * 1024 * 1024;
 	private static final int CORE_THREAD_NUM = 5;
 	private static final int MAX_THREAD_NUM = 5;
 	private static final long TIME_OUT = 80;    
-	private static final ExecutorService rpcMessageHandlerPool = new ThreadPoolExecutor(
-			CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
+	private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
 	private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
 	private static final ExecutorService writeToFileHandlerPool = Executors.newCachedThreadPool();
 	public RandomAccessFile rpcDataFile;
 	public FileChannel rpcDataFileChannel;
-	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
+	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String,ConcurrentHashMap<String,Range2Result>>>();
 	private ConcurrentHashMap<String, RandomAccessFile> files = new ConcurrentHashMap<String, RandomAccessFile>();
 	private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
 	private DirectMemoryBlockHandler directMemoryBlockHandler;
@@ -65,13 +65,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
 	MappedByteBuffer curBlock = null;
 	private Object lockObject = new Object();//更新下一个任务时的锁
-	
-	private Object range2lockObject = new Object(); //
+	private Object range2lockObject = new Object(); 
 	private Object range3lockObject = new Object();
+	
 	
 	private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
     // 不要修改访问级别
     public KcodeRpcMonitorImpl() {
+
     	range3Result = new ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>>();
     	for(int i = 0; i < writeRPCMessageHandlers.length; i++) {
     		writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result, range2lockObject, range3lockObject);
@@ -80,6 +81,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     public void prepare(String path) {
     	RandomAccessFile randomAccessFile;
+    	boolean needReadNext = true;
 		try {
 			randomAccessFile = new RandomAccessFile(path, "r");
 			directMemoryBlockHandler = new DirectMemoryBlockHandler(this, randomAccessFile.getChannel(), 0, BLOCK_SIZE);
@@ -99,16 +101,24 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
 				//TODO 是否需要判断当前block可读长度 > 这个Block要工作的长度？
 				getCurrentIdxAndUpdateIt(writeRPCMessageHandlers[i]);
+				
 			}
+			
 			while(curBlockIdx < MaxBlockSize) {
-				BuildRPCMessageHandler writeRPCMessageHandler = readyedMessageHandlers.poll();
+				BuildRPCMessageHandler writeRPCMessageHandler = readyedMessageHandlers.take();
+				
+
 				if(writeRPCMessageHandler.isBeyondTwoBlock()) {
 					curBlockIdx++;
+					needReadNext = true;
 				}
-				rpcMessageHandlerPool.submit(writeRPCMessageHandler);
+				rpcMessageHandlerPool.execute(writeRPCMessageHandler);
 				//异步任务：当目前block处理字节数大于阈值时，读取下一个block
-				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD) { //需要加载下一个block的数据
-					directMemoryBlockHandler.setStartPosition(curBlockIdx * BLOCK_SIZE);
+				//System.out.println(writeRPCMessageHandler.printInfo());
+				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD && needReadNext && !writeRPCMessageHandler.isBeyondTwoBlock()) { //需要加载下一个block的数据
+					needReadNext = false;
+					System.out.println(curBlockIdx);
+					directMemoryBlockHandler.setStartPosition((curBlockIdx + 1) * BLOCK_SIZE);
 					if(curBlockIdx < MaxBlockSize - 1) {
 						directMemoryBlockHandler.setLength(BLOCK_SIZE);
 					}else {
@@ -214,6 +224,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     		if(nextStartIdx >= BLOCK_SIZE) {
     			isBeyondTwoBatch = true;
     			nextStartIdx %= BLOCK_SIZE;
+    			
     			curBlock = blocks[1];
     			blocks[0] = blocks[1];
     			blocks[1] = null;
@@ -240,7 +251,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     			writeRPCMessageHandler.setLength(nextStartIdx - messageStartIdx);
     		}
     		messageStartIdx = nextStartIdx;
-    		readyedMessageHandlers.add(writeRPCMessageHandler);
+    		try {
+				readyedMessageHandlers.put(writeRPCMessageHandler);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
     	
     }
