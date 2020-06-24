@@ -36,6 +36,7 @@ public class Range2Result {
 		int index = queue.size() - (int) Math.ceil((double)queue.size()*0.99)-1;
 		int count = 0;
 		int ans = -1;
+		System.out.println(String.format("count:%d,index:%s", count, index));
 		while(count < index) {
 			ans = queue.poll();
 			count++;

@@ -156,13 +156,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 					Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
 					while(iterator.hasNext()) {
 						Range2Result node = iterator.next().getValue();
+						System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
 						StringBuilder builder = new StringBuilder();
 						 
 						 
 						builder.append(node.mainIP).append(',')
 							.append(node.calledIP).append(',')
-							.append(node.computeP99()).append(',')
-							.append(node.computeSuccessRate());
+							.append(node.computeSuccessRate()).append(',')
+							.append(node.computeP99());
 						result.add(builder.toString());
 					}
 				}
