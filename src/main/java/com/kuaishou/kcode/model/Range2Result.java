@@ -47,10 +47,15 @@ public class Range2Result {
 
         if(ansP99 < 0) {
             int ans = -1;
-            int index = (int) Math.ceil((double)queue.size()*0.01);
+            double p99 = queue.size() * 0.01;
+            int index = 0;
+            if(p99 == Math.ceil(p99)) { // integer
+                index = (int) Math.ceil(p99) + 1;
+            } else {
+                index = (int) Math.ceil((double)queue.size()*0.01);
+            }
 //            int index = queue.size() - (int);
             int count = 0;
-//            System.out.println(String.format("size:%d,count:%d,index:%s", queue.size(), count, index));
             while(count < index) {
                 ans = queue.poll();
                 count++;
