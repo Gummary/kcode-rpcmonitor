@@ -6,10 +6,8 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toSet;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author kcode
@@ -31,20 +29,16 @@ public class KcodeRpcMonitorTest {
         Map<CheckResponderKey, CheckResponderResult> checkResponderMap = createCheckResponderMap("/home/yaoping/kuaishou/hp/checkResponder.result");
 
         // 评测checkPair
-        try{
-            checkPair(kcodeRpcMonitor, checkPairMap);
-        } catch (RuntimeException e) {
-            return;
-        }
+        checkPair(kcodeRpcMonitor, checkPairMap);
 
         // 评测checkResponder
-        checkResponder(kcodeRpcMonitor, checkResponderMap);
+//        checkResponder(kcodeRpcMonitor, checkResponderMap);
 
     }
 
     public static void checkPair(KcodeRpcMonitor kcodeRpcMonitor,
                                  Map<CheckPairKey, Set<CheckPairResult>> checkPairMap) {
-        int checkPairTime = 10000; // 可以自己修改次数
+        int checkPairTime = 1; // 可以自己修改次数
         long cast = 0L;
         while (true) {
             for (Map.Entry<CheckPairKey, Set<CheckPairResult>> entry : checkPairMap.entrySet()) {
@@ -65,29 +59,27 @@ public class KcodeRpcMonitorTest {
                             checkResult) {
                         System.out.println(s);
                     }
-                    throw new RuntimeException("评测结果错误");
                 }
                 if (result.size() != 0) {
                     Set<CheckPairResult> checkPairResSet = result.stream().map(CheckPairResult::new).collect(toSet());
                     if (!checkResult.containsAll(checkPairResSet)) {
-                        System.out.println("Check key: " + key);
-                        System.out.println("Result:");
-                        for (String s :
-                                result) {
-                            System.out.println(s);
+                        System.out.println(key);
+                        List<CheckPairResult> sortedResutlList = checkPairResSet.stream().sorted(Comparator.comparing(CheckPairResult::hashCode)).collect(Collectors.toList());
+                        List<CheckPairResult> sortedCheckResultList = checkResult.stream().sorted(Comparator.comparing(CheckPairResult::hashCode)).collect(Collectors.toList());
+                        for (int i = 0; i < sortedResutlList.size(); i++) {
+                            if(checkResult.contains(sortedResutlList.get(i))) {
+                                continue;
+                            }
+                            System.out.println(String.format("%s\n%s", sortedResutlList.get(i), sortedCheckResultList.get(i)));
                         }
-                        System.out.println("Check result");
-                        for (CheckPairResult s :
-                                checkResult) {
-                            System.out.println(s);
-                        }
-                        throw new RuntimeException("评测结果错误");
+                        System.out.println("=====");
+                        break;
                     }
                 }
-                if (checkPairTime-- <= 0) {
-                    System.out.println("checkPair 结束, cast(ms):" + NANOSECONDS.toMillis(cast));
-                    return;
-                }
+            }
+            if (checkPairTime-- <= 0) {
+                System.out.println("checkPair 结束, cast(ms):" + NANOSECONDS.toMillis(cast));
+                return;
             }
         }
     }

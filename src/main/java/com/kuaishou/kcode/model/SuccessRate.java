@@ -9,13 +9,13 @@ public class SuccessRate {
 	
 	
 	public String computeSuccessRate(DecimalFormat format) {
-		System.out.println(success.get()+","+total.get());
+//		System.out.println(success.get()+","+total.get());
 		double rate = (double)success.get() / total.get();
 		String resultRate = ".00%";
 		if(rate - 0.0d >= 10e-2) {
 			resultRate = format.format(rate * 100) + "%";
 		}
-		System.out.println(resultRate);
+//		System.out.println(resultRate);
 		return resultRate;
 	}
 

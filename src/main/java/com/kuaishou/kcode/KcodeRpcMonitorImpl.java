@@ -138,7 +138,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 					Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
 					while(iterator.hasNext()) {
 						Range2Result node = iterator.next().getValue();
-						System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
+//						System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
 						StringBuilder builder = new StringBuilder();
 						 
 						 
@@ -149,9 +149,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 						result.add(builder.toString());
 					}
 				}
-
 			}
-			
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
@@ -230,6 +228,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     			
     			}
     		}
+    		// next 回车位置，自增后为下一个batch的开始
     		nextStartIdx++;
     		if(isBeyondTwoBatch) {
     			writeRPCMessageHandler.setiSBeyondTwoBlock(true);

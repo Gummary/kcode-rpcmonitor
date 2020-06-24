@@ -39,10 +39,6 @@ public class CheckPairResult {
                 p99 == that.p99 &&
                 Objects.equals(callerIP, that.callerIP) &&
                 Objects.equals(responderIP, that.responderIP);
-        if (!res) {
-            System.err.println(that.toString() + "  " + that.successate);
-            System.err.println(this.toString() + "  " + successate);
-        }
         return res;
     }
 
