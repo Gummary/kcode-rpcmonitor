@@ -13,9 +13,7 @@ import java.nio.channels.FileChannel;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
 
@@ -35,7 +33,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private static final long TIME_OUT = 80;    
 	private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
 	private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
-	private static final ExecutorService writeToFileHandlerPool = Executors.newCachedThreadPool();
+//	private static final ExecutorService writeToFileHandlerPool = Executors.newCachedThreadPool();
 	public RandomAccessFile rpcDataFile;
 	public FileChannel rpcDataFileChannel;
 	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String,ConcurrentHashMap<String,Range2Result>>>();
@@ -63,6 +61,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     		writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result, range2lockObject, range3lockObject);
     	}
     }
+
+
 
     @Override
 	public void prepare(String path) {
@@ -119,11 +119,15 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
 		} catch (InterruptedException | ExecutionException | IOException e) {
 			System.out.println(e.getMessage());
+		} finally {
+			rpcMessageHandlerPool.shutdown();
+			blockHandlerPool.shutdown();
 		}
     }
 
     @Override
 	public List<String> checkPair(String caller, String responder, String time) {
+
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	ArrayList<String> result = new ArrayList<String>();
     	DecimalFormat format = new DecimalFormat("#.00");
@@ -158,6 +162,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public String checkResponder(String responder, String start, String end) {
+
+
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	DecimalFormat decimalFormat = new DecimalFormat("#.00");
     	String result = ".00%";
@@ -165,6 +171,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			int startTimeStamp = (int)(simpleDateFormat.parse(start).getTime() / 60000);
 			int endTimeStamp = (int)(simpleDateFormat.parse(end).getTime() / 60000);
 			ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(responder);
+			if(successRateMap == null) {
+			    return "-1.00%";
+			}
 			double rate = 0.0d;
 			int count = 0;
 			for (int i = startTimeStamp; i <= endTimeStamp; i++) {
@@ -176,7 +185,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
 			double resultDouble = rate * 100 / count;
 			String resultString = decimalFormat.format(resultDouble);
-			if(resultDouble - 0.0d >= 1e-2) {
+			if(resultDouble - 0.0d >= 1e-4) {
 				result = resultString + "%";
 			}
 			

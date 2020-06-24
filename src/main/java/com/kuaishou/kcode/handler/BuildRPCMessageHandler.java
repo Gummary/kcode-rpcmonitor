@@ -101,7 +101,8 @@ public class BuildRPCMessageHandler implements Runnable{
 					}
 					if(curByte == '\n') {
 						
-						buildMessage(targetBuffer, messageStart, splitIdxList);
+//						buildMessage(targetBuffer, messageStart, splitIdxList);
+						buildMessage(buffer, 0, splitIdxList);
 						countSpiltIdx = 0;
 					}
 					
@@ -117,7 +118,7 @@ public class BuildRPCMessageHandler implements Runnable{
 					countSpiltIdx++;
 				}
 				if(curByte == '\n') {
-					buildMessage(targetBuffer, messageStart, splitIdxList);
+					buildMessage(appendBuffer, messageStart, splitIdxList);
 					
 					messageStart = i + 1; 
 					countSpiltIdx = 0;
@@ -206,28 +207,30 @@ public class BuildRPCMessageHandler implements Runnable{
 		result.fillMessage(isSuccess, useTime);
 		
 		//三阶段统计
+		range3Result.putIfAbsent(calledService, new ConcurrentHashMap<>());
 		ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
-		if(successRateMap == null) {
-			synchronized (range3lockObject) {
-				if(!range3Result.containsKey(calledService)) {
-					successRateMap = new ConcurrentHashMap<Integer, SuccessRate>();
-					range3Result.put(calledService, successRateMap);
-				}else {
-					successRateMap = range3Result.get(calledService);
-				}
-			}
-		}
+//		if(successRateMap == null) {
+//			synchronized (range3lockObject) {
+//				if(!range3Result.containsKey(calledService)) {
+//					successRateMap = new ConcurrentHashMap<Integer, SuccessRate>();
+//					range3Result.put(calledService, successRateMap);
+//				}else {
+//					successRateMap = range3Result.get(calledService);
+//				}
+//			}
+//		}
+        successRateMap.putIfAbsent(secondTimeStamp, new SuccessRate());
 		SuccessRate successRate = successRateMap.get(secondTimeStamp);
-		if(successRate == null) {
-			synchronized (range3lockObject) {
-				if(!successRateMap.containsKey(secondTimeStamp)) {
-					successRate = new SuccessRate();
-					successRateMap.put(secondTimeStamp, successRate);
-				}else {
-					successRate = successRateMap.get(secondTimeStamp);
-				}
-			}
-		}
+//		if(successRate == null) {
+//			synchronized (range3lockObject) {
+//				if(!successRateMap.containsKey(secondTimeStamp)) {
+//					successRate = new SuccessRate();
+//					successRateMap.put(secondTimeStamp, successRate);
+//				}else {
+//					successRate = successRateMap.get(secondTimeStamp);
+//				}
+//			}
+//		}
 		if(isSuccess > 0) {
 			successRate.success.incrementAndGet();
 		}

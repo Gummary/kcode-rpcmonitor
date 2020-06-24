@@ -12,12 +12,10 @@ public class SuccessRate {
 //		System.out.println(success.get()+","+total.get());
 		double rate = (double)success.get() / total.get();
 		String resultRate = ".00%";
-		if(rate - 0.0d >= 1e-2) {
+		if(rate - 0.0d >= 1e-4) {
 			resultRate = format.format(rate * 100) + "%";
 		}
 //		System.out.println(resultRate);
 		return resultRate;
 	}
-
-
 }

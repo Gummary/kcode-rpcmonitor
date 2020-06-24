@@ -1,5 +1,7 @@
 package com.kuaishou.kcode;
 
+import com.sun.tools.javac.comp.Check;
+
 import static com.kuaishou.kcode.KcodeUtils.createCheckPairMap;
 import static com.kuaishou.kcode.KcodeUtils.createCheckResponderMap;
 import static java.lang.System.nanoTime;
@@ -28,12 +30,19 @@ public class KcodeRpcMonitorTest {
         // 读取checkResponder.result文件
         Map<CheckResponderKey, CheckResponderResult> checkResponderMap = createCheckResponderMap("/home/yaoping/kuaishou/hp/checkResponder.result");
 
-        // 评测checkPair
+//        CheckPairKey singKey = new CheckPairKey("userService36,openService323,2020-06-16 17:50");
+//        checkSinglePair(kcodeRpcMonitor, singKey, null);
+
+//         评测checkPair
         checkPair(kcodeRpcMonitor, checkPairMap);
 
         // 评测checkResponder
-//        checkResponder(kcodeRpcMonitor, checkResponderMap);
+        checkResponder(kcodeRpcMonitor, checkResponderMap);
 
+    }
+
+    public static void checkSinglePair(KcodeRpcMonitor kcodeRpcMonitor, CheckPairKey key, CheckPairResult checkPairResult) {
+        List<String> result = kcodeRpcMonitor.checkPair(key.getCaller(), key.getResponder(), key.getTime());
     }
 
     public static void checkPair(KcodeRpcMonitor kcodeRpcMonitor,

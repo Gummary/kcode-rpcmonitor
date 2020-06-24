@@ -39,6 +39,7 @@ public class Range2Result {
     }
 
     public String computeSuccessRate(DecimalFormat format) {
+//        System.out.println(String.format("%s %s %d %d %s",mainIP, calledIP, successRate.success.get(), successRate.total.get(), successRate.computeSuccessRate(format)));
         return successRate.computeSuccessRate(format);
     }
 
@@ -67,4 +68,5 @@ public class Range2Result {
         }
 
     }
+
 }
