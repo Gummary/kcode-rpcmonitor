@@ -176,7 +176,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
 			double resultDouble = rate * 100 / count;
 			String resultString = decimalFormat.format(resultDouble);
-			if(resultDouble - 0.0d >= 10e-2) {
+			if(resultDouble - 0.0d >= 1e-2) {
 				result = resultString + "%";
 			}
 			
