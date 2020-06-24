@@ -50,6 +50,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private Object lockObject = new Object();//更新下一个任务时的锁
 	private Object range2lockObject = new Object(); 
 	private Object range3lockObject = new Object();
+
+	private int cachedMinuteTimeStamp = -1;
+	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedFunctionMap = null;
 	
 	
 	private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
@@ -134,7 +137,17 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	format.setRoundingMode(RoundingMode.DOWN);
     	try {
 			int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
-			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(minuteTimeStamp);
+			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
+
+			if(minuteTimeStamp != cachedMinuteTimeStamp) {
+				functionMap = range2MessageMap.get(minuteTimeStamp);
+				cachedMinuteTimeStamp = minuteTimeStamp;
+				cachedFunctionMap = functionMap;
+			} else {
+				functionMap = cachedFunctionMap;
+			}
+
+
 			if(functionMap != null) {
 				String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
 				ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
