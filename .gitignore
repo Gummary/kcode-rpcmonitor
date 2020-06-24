@@ -14,5 +14,6 @@ src/main/java/com/kuaishou/kcode/CheckPairKey.java
 src/main/java/com/kuaishou/kcode/CheckPairResult.java
 src/main/java/com/kuaishou/kcode/CheckResponderKey.java
 src/main/java/com/kuaishou/kcode/CheckResponderResult.java
+src/main/java/com/kuaishou/kcode/KcodeRpcMonitorTest.java
 src/main/java/com/kuaishou/kcode/KcodeUtils.java
 pom.xml
