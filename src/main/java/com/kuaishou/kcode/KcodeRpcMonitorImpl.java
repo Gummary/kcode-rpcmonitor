@@ -175,7 +175,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(responder);
 			double rate = 0.0d;
 			int count = 0;
-			for (int i = startTimeStamp; i < endTimeStamp; i++) {
+			for (int i = startTimeStamp; i <= endTimeStamp; i++) {
 				SuccessRate successRate = successRateMap.get(i);
 				if(successRate != null){
 					rate += (double)successRate.success.get() / successRate.total.get();
