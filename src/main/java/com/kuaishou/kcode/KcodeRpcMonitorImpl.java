@@ -2,6 +2,7 @@ package com.kuaishou.kcode;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.math.RoundingMode;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.text.DecimalFormat;
@@ -145,7 +146,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public List<String> checkPair(String caller, String responder, String time) {
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	ArrayList<String> result = new ArrayList<String>();
-    	
+    	DecimalFormat format = new DecimalFormat("#.00");
+    	format.setRoundingMode(RoundingMode.DOWN);
     	try {
 			int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
 			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(minuteTimeStamp);
@@ -162,7 +164,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 						 
 						builder.append(node.mainIP).append(',')
 							.append(node.calledIP).append(',')
-							.append(node.computeSuccessRate()).append(',')
+							.append(node.computeSuccessRate(format)).append(',')
 							.append(node.computeP99());
 						result.add(builder.toString());
 					}
@@ -174,7 +176,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			e.printStackTrace();
 		}
     	System.out.println(result);
-        return new ArrayList<String>();
+        return result;
     }
 
     public String checkResponder(String responder, String start, String end) {
