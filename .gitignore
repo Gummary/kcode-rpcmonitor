@@ -22,4 +22,5 @@ src/test/java/com/kuaishou/kcode/CheckResponderKey.java
 src/test/java/com/kuaishou/kcode/CheckResponderResult.java
 src/test/java/com/kuaishou/kcode/KcodeRpcMonitorTest.java
 src/test/java/com/kuaishou/kcode/KcodeUtils.java
+src/main/assembly/*
 pom.xml
