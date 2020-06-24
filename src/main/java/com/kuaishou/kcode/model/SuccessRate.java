@@ -1,5 +1,6 @@
 package com.kuaishou.kcode.model;
 
+import java.text.DecimalFormat;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SuccessRate {
@@ -7,22 +8,16 @@ public class SuccessRate {
 	public AtomicInteger total = new AtomicInteger();
 	
 	
-	public String computeSuccessRate() {
+	public String computeSuccessRate(DecimalFormat format) {
 		System.out.println(success.get()+","+total.get());
 		double rate = (double)success.get() / total.get();
-		rate = (int)(rate * 10000) / (double)100;
 		String resultRate = ".00%";
 		if(rate - 0.0d >= 10e-2) {
-			resultRate = rate + "%";
+			resultRate = format.format(rate * 100) + "%";
 		}
 		System.out.println(resultRate);
 		return resultRate;
 	}
 
 
-	@Override
-	public String toString() {
-		return "SuccessRate [success=" + success.get() + ", total=" + total.get() + "]";
-	}
-	
 }
