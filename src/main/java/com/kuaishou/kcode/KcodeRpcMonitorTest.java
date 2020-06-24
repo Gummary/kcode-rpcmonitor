@@ -21,7 +21,7 @@ public class KcodeRpcMonitorTest {
         KcodeRpcMonitor kcodeRpcMonitor = new KcodeRpcMonitorImpl();
 
         long startNs = nanoTime();
-        kcodeRpcMonitor.prepare("读取更换成自己本地的kcodeRpcMonitor.data路径");
+        kcodeRpcMonitor.prepare("/home/yaoping/kuaishou/rpcmonitor/2kcodeRpcMonitor.data");
         System.out.println("prepare 耗时(ms):" + NANOSECONDS.toMillis(nanoTime() - startNs));
 
         // 读取checkPair.result文件

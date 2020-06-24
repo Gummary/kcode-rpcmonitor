@@ -1,38 +1,21 @@
 package com.kuaishou.kcode;
 
+import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
+import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
+import com.kuaishou.kcode.model.Range2Result;
+import com.kuaishou.kcode.model.SuccessRate;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
-import javax.xml.soap.Node;
-
-import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
-import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
-import com.kuaishou.kcode.model.FileRPCMessage;
-import com.kuaishou.kcode.model.Range2Result;
-import com.kuaishou.kcode.model.SuccessRate;
-import com.kuaishou.kcode.thread.WriteMessageToFileThread;
+import java.util.concurrent.*;
 
 /**
  * @author kcode
@@ -78,7 +61,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	}
     }
 
-    public void prepare(String path) {
+    @Override
+	public void prepare(String path) {
     	RandomAccessFile randomAccessFile;
 		try {
 			randomAccessFile = new RandomAccessFile(path, "r");
@@ -101,7 +85,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				getCurrentIdxAndUpdateIt(writeRPCMessageHandlers[i]);
 			}
 			while(curBlockIdx < MaxBlockSize) {
-				BuildRPCMessageHandler writeRPCMessageHandler = readyedMessageHandlers.poll();
+				BuildRPCMessageHandler writeRPCMessageHandler = readyedMessageHandlers.take();
 				if(writeRPCMessageHandler.isBeyondTwoBlock()) {
 					curBlockIdx++;
 				}
@@ -120,10 +104,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		} catch (InterruptedException | ExecutionException | IOException e) {
 			System.out.println(e.getMessage());
 		}
-    	
     }
 
-    public List<String> checkPair(String caller, String responder, String time) {
+    @Override
+	public List<String> checkPair(String caller, String responder, String time) {
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	ArrayList<String> result = new ArrayList<String>();
     	try {
@@ -149,11 +133,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
-    	
-        return new ArrayList<String>();
+    	return result;
     }
 
-    public String checkResponder(String responder, String start, String end) {
+    @Override
+	public String checkResponder(String responder, String start, String end) {
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	String result = ".00%";
     	try {
