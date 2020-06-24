@@ -22,7 +22,7 @@ public class KcodeRpcMonitorTest {
 
         long startNs = nanoTime();
         kcodeRpcMonitor.prepare("/home/yaoping/kuaishou/data/2kcodeRpcMonitor.data");
-        System.out.println("prepare 耗时(ms):" + NANOSECONDS.toMillis(nanoTime() - startNs));
+//        System.out.println("prepare 耗时(ms):" + NANOSECONDS.toMillis(nanoTime() - startNs));
 
         // 读取checkPair.result文件
         Map<CheckPairKey, Set<CheckPairResult>> checkPairMap = createCheckPairMap("/home/yaoping/kuaishou/hp/checkPair.result");

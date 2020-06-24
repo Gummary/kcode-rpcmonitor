@@ -75,7 +75,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			this.rpcDataFile = randomAccessFile;
 			this.rpcDataFileChannel = randomAccessFile.getChannel();
 			long fileSize = randomAccessFile.length();
-			System.out.println(String.format("file length:%d", fileSize));
+//			System.out.println(String.format("file length:%d", fileSize));
 			//下取整
 			MaxBlockSize = (int)(fileSize / BLOCK_SIZE);
 			//存在剩余 -> block数 + 1
@@ -103,7 +103,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD && needReadNext 
 						&& !writeRPCMessageHandler.isBeyondTwoBlock()) { //需要加载下一个block的数据
 					needReadNext = false;
-					System.out.println(String.format("current ready to read blockIdx:%d, total block:%d ", curBlockIdx + 1, MaxBlockSize));
+//					System.out.println(String.format("current ready to read blockIdx:%d, total block:%d ", curBlockIdx + 1, MaxBlockSize));
 					long startPosition = (curBlockIdx + 1L) * BLOCK_SIZE;
 					if(startPosition >= fileSize) {
 						continue;
@@ -118,7 +118,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				}
 			}
 		} catch (InterruptedException | ExecutionException | IOException e) {
-			System.out.println(e.getMessage());
+//			System.out.println(e.getMessage());
 		} finally {
 			rpcMessageHandlerPool.shutdown();
 			blockHandlerPool.shutdown();
@@ -207,7 +207,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     		writeRPCMessageHandler.setTargetBuffer(curBlock);
     		writeRPCMessageHandler.setStartIndex(messageStartIdx);
     		if(curHandledBlockIdx == MaxBlockSize - 1 && messageStartIdx >= curBlock.capacity()) {//特例1：线程没有必要继续处理数据了
-				System.out.println("Done!");
+//				System.out.println("Done!");
     			return ;
     		}
     		int nextStartIdx = messageStartIdx + MESSAGE_BATCH_SIZE;

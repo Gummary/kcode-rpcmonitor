@@ -88,10 +88,10 @@ public class BuildRPCMessageHandler implements Runnable{
 				for(int i = 0; i < bufferSize;i++) {
 					if(i < lengthInTargetBuffer) {
 						curByte = targetBuffer.get(messageStart + i);
-						System.out.print((char)curByte);
+//						System.out.print((char)curByte);
 					}else {
 						curByte = appendBuffer.get(i - lengthInTargetBuffer);
-						System.out.print((char)curByte);
+//						System.out.print((char)curByte);
 					}
 					
 					buffer.put(curByte);

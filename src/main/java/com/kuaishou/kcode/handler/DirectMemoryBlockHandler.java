@@ -27,7 +27,7 @@ public class DirectMemoryBlockHandler implements Callable<MappedByteBuffer>{
 	public MappedByteBuffer call() throws Exception {
 		long start = System.currentTimeMillis();
 		MappedByteBuffer block = null;
-		System.out.println(String.format("start pos:%d, length:%d", startPosition, length));
+//		System.out.println(String.format("start pos:%d, length:%d", startPosition, length));
 		try {
 			block = fileChannel.map(FileChannel.MapMode.READ_ONLY, startPosition, length);
 			kcode.setNextBlock(block);
@@ -35,7 +35,7 @@ public class DirectMemoryBlockHandler implements Callable<MappedByteBuffer>{
 			e.printStackTrace();
 		}
 		
-		System.out.println("use time:"+ (System.currentTimeMillis() - start));
+//		System.out.println("use time:"+ (System.currentTimeMillis() - start));
 		return block;
 	}
 
