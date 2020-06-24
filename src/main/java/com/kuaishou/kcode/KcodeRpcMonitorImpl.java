@@ -159,6 +159,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
 	public String checkResponder(String responder, String start, String end) {
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    	DecimalFormat decimalFormat = new DecimalFormat("#.00");
     	String result = ".00%";
     	try {
 			int startTimeStamp = (int)(simpleDateFormat.parse(start).getTime() / 60000);
@@ -173,9 +174,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 					count++;
 				}
 			}
-			double resultDouble = (int)(rate * 100 / count) / 100;
+			double resultDouble = rate * 100 / count;
+			String resultString = decimalFormat.format(resultDouble);
 			if(resultDouble - 0.0d >= 10e-2) {
-				result = resultDouble + "%";
+				result = resultString + "%";
 			}
 			
 		} catch (ParseException e) {
