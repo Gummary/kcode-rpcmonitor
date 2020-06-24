@@ -152,8 +152,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
-    	System.out.println(result);
-        return new ArrayList<String>();
+    	return result;
     }
 
     @Override

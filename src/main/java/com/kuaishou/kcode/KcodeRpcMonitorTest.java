@@ -31,7 +31,11 @@ public class KcodeRpcMonitorTest {
         Map<CheckResponderKey, CheckResponderResult> checkResponderMap = createCheckResponderMap("/home/yaoping/kuaishou/hp/checkResponder.result");
 
         // 评测checkPair
-        checkPair(kcodeRpcMonitor, checkPairMap);
+        try{
+            checkPair(kcodeRpcMonitor, checkPairMap);
+        } catch (RuntimeException e) {
+            return;
+        }
 
         // 评测checkResponder
         checkResponder(kcodeRpcMonitor, checkResponderMap);
@@ -50,13 +54,33 @@ public class KcodeRpcMonitorTest {
                 cast += (nanoTime() - startNs);
                 Set<CheckPairResult> checkResult = entry.getValue();
                 if (Objects.isNull(result) || checkResult.size() != result.size()) {
-                    System.out.println("key:" + key + ", result:" + result + ", checkResult:" + checkResult);
+                    System.out.println("Check key: " + key);
+                    System.out.println("Result:");
+                    for (String s :
+                            result) {
+                        System.out.println(s);
+                    }
+                    System.out.println("Check result");
+                    for (CheckPairResult s :
+                            checkResult) {
+                        System.out.println(s);
+                    }
                     throw new RuntimeException("评测结果错误");
                 }
                 if (result.size() != 0) {
                     Set<CheckPairResult> checkPairResSet = result.stream().map(CheckPairResult::new).collect(toSet());
                     if (!checkResult.containsAll(checkPairResSet)) {
-                        System.out.println("key:" + key + ", result:" + result + ", checkResult:" + checkResult);
+                        System.out.println("Check key: " + key);
+                        System.out.println("Result:");
+                        for (String s :
+                                result) {
+                            System.out.println(s);
+                        }
+                        System.out.println("Check result");
+                        for (CheckPairResult s :
+                                checkResult) {
+                            System.out.println(s);
+                        }
                         throw new RuntimeException("评测结果错误");
                     }
                 }
