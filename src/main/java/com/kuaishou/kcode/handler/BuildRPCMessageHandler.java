@@ -66,6 +66,7 @@ public class BuildRPCMessageHandler implements Runnable{
 					countSpiltIdx++;
 				}
 				if(curByte == '\n') {
+					
 					buildMessage(targetBuffer, messageStart, splitIdxList);
 					messageStart = i + 1; 
 					countSpiltIdx = 0;
@@ -99,6 +100,7 @@ public class BuildRPCMessageHandler implements Runnable{
 						countSpiltIdx++;
 					}
 					if(curByte == '\n') {
+						
 						buildMessage(targetBuffer, messageStart, splitIdxList);
 						countSpiltIdx = 0;
 					}
@@ -116,6 +118,7 @@ public class BuildRPCMessageHandler implements Runnable{
 				}
 				if(curByte == '\n') {
 					buildMessage(targetBuffer, messageStart, splitIdxList);
+					
 					messageStart = i + 1; 
 					countSpiltIdx = 0;
 				}
@@ -124,7 +127,7 @@ public class BuildRPCMessageHandler implements Runnable{
 			int endIndex = startIndex + length;
 			for(int i = startIndex; i < endIndex; i++) {
 				curByte = targetBuffer.get(i);
-				//System.out.println(Thread.currentThread() +","+i);
+				
 				if(curByte == ',') {
 					splitIdxList[countSpiltIdx] = i;
 					countSpiltIdx++;
@@ -132,6 +135,7 @@ public class BuildRPCMessageHandler implements Runnable{
 				if(curByte == '\n') {
 					
 					buildMessage(targetBuffer, messageStart, splitIdxList);
+					
 					messageStart = i + 1; 
 					countSpiltIdx = 0;
 				}
@@ -152,7 +156,7 @@ public class BuildRPCMessageHandler implements Runnable{
 		int isSuccess = buildBoolean(buffer, splitIdxList[3] + 1);
 		int useTime = buildInt(buffer, splitIdxList[4] + 1, splitIdxList[5]);
 		int secondTimeStamp = buildMinuteTimeStamp(buffer, splitIdxList[5] + 1);
-
+		//System.out.println(mainService+','+mainIP+','+calledService+','+calledIP+','+isSuccess+','+useTime+','+secondTimeStamp);
 		//String range3Key = new StringBuilder().append(calledService).append("-").append(secondTimeStamp).toString();
 		
 		//二阶段统计
@@ -233,7 +237,7 @@ public class BuildRPCMessageHandler implements Runnable{
 	private String buildString(ByteBuffer buffer, int startIdx, int endIndex) {
 		StringBuilder builder = new StringBuilder();
 		for(int i = startIdx; i < endIndex; i++) {
-			builder.append(buffer.get(i));
+			builder.append((char)buffer.get(i));
 		}
 		return builder.toString();
 	}

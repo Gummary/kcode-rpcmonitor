@@ -42,7 +42,7 @@ import com.kuaishou.kcode.thread.WriteMessageToFileThread;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	
-	public static final int BLOCK_SIZE = 500 * 1024 * 1024;
+	public static final long BLOCK_SIZE = 500 * 1024 * 1024;
 	public static final int MESSAGE_BATCH_SIZE = 5 * 1024 * 1024;
 	private static final int LOAD_BLOCK_THRESHOLD = 400 * 1024 * 1024;
 	private static final int CORE_THREAD_NUM = 5;
@@ -61,7 +61,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private MappedByteBuffer[] blocks = new MappedByteBuffer[2];
 	private int MaxBlockSize = 0;//总共要读的块数
 	private int curBlockIdx = 0;//当前读到的block数
-	
+	private int curHandledBlockIdx = 0;
 	private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
 	MappedByteBuffer curBlock = null;
 	private Object lockObject = new Object();//更新下一个任务时的锁
@@ -89,13 +89,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			this.rpcDataFile = randomAccessFile;
 			this.rpcDataFileChannel = randomAccessFile.getChannel();
 			long fileSize = randomAccessFile.length();
+			System.out.println(String.format("file length:%d", fileSize));
 			//下取整
 			MaxBlockSize = (int)(fileSize / BLOCK_SIZE);
 			//存在剩余 -> block数 + 1
 			MaxBlockSize = fileSize % BLOCK_SIZE == 0 ? MaxBlockSize : MaxBlockSize + 1;
-			long curTimestamp = System.currentTimeMillis();
+			//long curTimestamp = System.currentTimeMillis();
 			blocks[0] = future.get();
-			System.out.println(System.currentTimeMillis() - curTimestamp);//TEST
+			//System.out.println(System.currentTimeMillis() - curTimestamp);//TEST
 			
 			curBlock = blocks[0];//当前MessageHandler处理的块的位置
 			for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
@@ -115,14 +116,19 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				rpcMessageHandlerPool.execute(writeRPCMessageHandler);
 				//异步任务：当目前block处理字节数大于阈值时，读取下一个block
 				//System.out.println(writeRPCMessageHandler.printInfo());
-				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD && needReadNext && !writeRPCMessageHandler.isBeyondTwoBlock()) { //需要加载下一个block的数据
+				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD && needReadNext 
+						&& !writeRPCMessageHandler.isBeyondTwoBlock()) { //需要加载下一个block的数据
 					needReadNext = false;
-					System.out.println(curBlockIdx);
-					directMemoryBlockHandler.setStartPosition((curBlockIdx + 1L) * BLOCK_SIZE);
-					if(curBlockIdx < MaxBlockSize - 1) {
+					System.out.println(String.format("current ready to read blockIdx:%d, total block:%d ", curBlockIdx + 1, MaxBlockSize));
+					long startPosition = (curBlockIdx + 1L) * BLOCK_SIZE;
+					if(startPosition >= fileSize) {
+						continue;
+					}
+					directMemoryBlockHandler.setStartPosition(startPosition);
+					if(fileSize - startPosition > BLOCK_SIZE) {
 						directMemoryBlockHandler.setLength(BLOCK_SIZE);
 					}else {
-						directMemoryBlockHandler.setLength((int)(fileSize - curBlockIdx * BLOCK_SIZE));
+						directMemoryBlockHandler.setLength(fileSize - startPosition);
 					}
 					blockHandlerPool.submit(directMemoryBlockHandler);
 				}
@@ -139,30 +145,34 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public List<String> checkPair(String caller, String responder, String time) {
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	ArrayList<String> result = new ArrayList<String>();
+    	
     	try {
 			int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
 			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(minuteTimeStamp);
 			if(functionMap != null) {
 				String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
 				ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
-				 Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
-				 while(iterator.hasNext()) {
-					 Range2Result node = iterator.next().getValue();
-					 StringBuilder builder = new StringBuilder();
-					 
-					 
-					 builder.append(node.mainIP).append(',')
-					 	.append(node.calledIP).append(',')
-					 	.append(node.computeP99()).append(',')
-					 	.append(node.computeSuccessRate());
-					 result.add(builder.toString());
-				 }
+				if(ipMaps != null) {
+					Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
+					while(iterator.hasNext()) {
+						Range2Result node = iterator.next().getValue();
+						StringBuilder builder = new StringBuilder();
+						 
+						 
+						builder.append(node.mainIP).append(',')
+							.append(node.calledIP).append(',')
+							.append(node.computeP99()).append(',')
+							.append(node.computeSuccessRate());
+						result.add(builder.toString());
+					}
+				}
+
 			}
 			
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
-    	
+    	System.out.println(result);
         return new ArrayList<String>();
     }
 
@@ -208,16 +218,17 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     		boolean isBeyondTwoBatch = false;
     		writeRPCMessageHandler.setTargetBuffer(curBlock);
     		writeRPCMessageHandler.setStartIndex(messageStartIdx);
-    		if(messageStartIdx >= curBlock.capacity()) {//特例1：线程没有必要继续处理数据了
-    			System.out.println("Done!");
+    		if(curHandledBlockIdx == MaxBlockSize - 1 && messageStartIdx >= curBlock.capacity()) {//特例1：线程没有必要继续处理数据了
+				System.out.println("Done!");
     			return ;
     		}
     		int nextStartIdx = messageStartIdx + MESSAGE_BATCH_SIZE;
-    		if(nextStartIdx >= curBlock.capacity() && curBlockIdx == MaxBlockSize - 1) {//特例2：该batch是最后一个block数据的最后一块
+    		if(nextStartIdx >= curBlock.capacity() && curHandledBlockIdx == MaxBlockSize - 1) {//特例2：该batch是最后一个block数据的最后一块
     			writeRPCMessageHandler.setiSBeyondTwoBlock(true);//置位，目的是让prepare中能跳出循环
     			writeRPCMessageHandler.setAppendBuffer(null);
-    			writeRPCMessageHandler.setLength(curBlock.capacity() + 1 - messageStartIdx);
+    			writeRPCMessageHandler.setLength(curBlock.capacity() - messageStartIdx);
     			readyedMessageHandlers.add(writeRPCMessageHandler);
+    			messageStartIdx = curBlock.capacity();
     			return ;
     		}
     		
@@ -244,7 +255,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     		if(isBeyondTwoBatch) {
     			writeRPCMessageHandler.setiSBeyondTwoBlock(true);
     			writeRPCMessageHandler.setAppendBuffer(curBlock);
-    			writeRPCMessageHandler.setLength(nextStartIdx + BLOCK_SIZE - messageStartIdx);
+    			writeRPCMessageHandler.setLength(nextStartIdx + (int)BLOCK_SIZE - messageStartIdx);
+    			curHandledBlockIdx++;
     		}else {
     			writeRPCMessageHandler.setiSBeyondTwoBlock(false);
     			writeRPCMessageHandler.setAppendBuffer(null);//目的是尽快让GC回收区域

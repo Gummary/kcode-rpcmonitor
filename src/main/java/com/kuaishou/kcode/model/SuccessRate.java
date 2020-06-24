@@ -8,13 +8,21 @@ public class SuccessRate {
 	
 	
 	public String computeSuccessRate() {
+		System.out.println(success.get()+","+total.get());
 		double rate = (double)success.get() / total.get();
 		rate = (int)(rate * 100) / 100;
 		String resultRate = ".00%";
 		if(rate - 0.0d >= 10e-2) {
 			resultRate = rate + "%";
 		}
+		System.out.println(resultRate);
 		return resultRate;
+	}
+
+
+	@Override
+	public String toString() {
+		return "SuccessRate [success=" + success.get() + ", total=" + total.get() + "]";
 	}
 	
 }
