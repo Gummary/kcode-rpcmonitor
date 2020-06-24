@@ -12,10 +12,10 @@ import com.kuaishou.kcode.KcodeRpcMonitorImpl;
 public class DirectMemoryBlockHandler implements Callable<MappedByteBuffer>{
 	private KcodeRpcMonitorImpl kcode;
 	private FileChannel fileChannel; 
-	private int startPosition; 
+	private long startPosition; 
 	private int length; 
 
-	public DirectMemoryBlockHandler(KcodeRpcMonitorImpl kcode, FileChannel fileChannel, int startPosition, int length) {
+	public DirectMemoryBlockHandler(KcodeRpcMonitorImpl kcode, FileChannel fileChannel, long startPosition, int length) {
 		super();
 		this.kcode = kcode;
 		this.fileChannel = fileChannel;
@@ -25,13 +25,21 @@ public class DirectMemoryBlockHandler implements Callable<MappedByteBuffer>{
 
 	@Override
 	public MappedByteBuffer call() throws Exception {
-		MappedByteBuffer block = fileChannel.map(FileChannel.MapMode.READ_ONLY, startPosition, length);
-		kcode.setNextBlock(block);
+		long start = System.currentTimeMillis();
+		MappedByteBuffer block = null;
+		try {
+			block = fileChannel.map(FileChannel.MapMode.READ_ONLY, startPosition, length);
+			kcode.setNextBlock(block);
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		System.out.println("use time:"+ (System.currentTimeMillis() - start));
 		return block;
 	}
 
 
-	public void setStartPosition(int startPosition) {
+	public void setStartPosition(long startPosition) {
 		this.startPosition = startPosition;
 	}
 

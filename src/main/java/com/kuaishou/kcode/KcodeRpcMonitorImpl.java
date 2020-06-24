@@ -118,7 +118,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				if(writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD && needReadNext && !writeRPCMessageHandler.isBeyondTwoBlock()) { //需要加载下一个block的数据
 					needReadNext = false;
 					System.out.println(curBlockIdx);
-					directMemoryBlockHandler.setStartPosition((curBlockIdx + 1) * BLOCK_SIZE);
+					directMemoryBlockHandler.setStartPosition((curBlockIdx + 1L) * BLOCK_SIZE);
 					if(curBlockIdx < MaxBlockSize - 1) {
 						directMemoryBlockHandler.setLength(BLOCK_SIZE);
 					}else {
