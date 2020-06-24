@@ -2,6 +2,7 @@ package com.kuaishou.kcode.handler;
 
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -65,6 +66,7 @@ public class BuildRPCMessageHandler implements Runnable{
 					countSpiltIdx++;
 				}
 				if(curByte == '\n') {
+					
 					buildMessage(targetBuffer, messageStart, splitIdxList);
 					messageStart = i + 1; 
 					countSpiltIdx = 0;
@@ -79,26 +81,32 @@ public class BuildRPCMessageHandler implements Runnable{
 					findLF++;
 				}
 				int lengthInTargetBuffer = blockSize - messageStart;
-				int bufferSize = lengthInTargetBuffer + findLF;
+				int bufferSize = lengthInTargetBuffer + findLF + 1;
 				
 				ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+				countSpiltIdx = 0;
 				for(int i = 0; i < bufferSize;i++) {
 					if(i < lengthInTargetBuffer) {
 						curByte = targetBuffer.get(messageStart + i);
+						System.out.print((char)curByte);
 					}else {
 						curByte = appendBuffer.get(i - lengthInTargetBuffer);
+						System.out.print((char)curByte);
 					}
+					
 					buffer.put(curByte);
 					if(curByte == ',') {
 						splitIdxList[countSpiltIdx] = i;
 						countSpiltIdx++;
 					}
 					if(curByte == '\n') {
+						
 						buildMessage(targetBuffer, messageStart, splitIdxList);
 						countSpiltIdx = 0;
 					}
 					
 				}
+				
 				messageStart = findLF + 1;
 			}
 			//读第二段
@@ -110,6 +118,7 @@ public class BuildRPCMessageHandler implements Runnable{
 				}
 				if(curByte == '\n') {
 					buildMessage(targetBuffer, messageStart, splitIdxList);
+					
 					messageStart = i + 1; 
 					countSpiltIdx = 0;
 				}
@@ -118,18 +127,21 @@ public class BuildRPCMessageHandler implements Runnable{
 			int endIndex = startIndex + length;
 			for(int i = startIndex; i < endIndex; i++) {
 				curByte = targetBuffer.get(i);
+				
 				if(curByte == ',') {
 					splitIdxList[countSpiltIdx] = i;
 					countSpiltIdx++;
 				}
 				if(curByte == '\n') {
+					
 					buildMessage(targetBuffer, messageStart, splitIdxList);
+					
 					messageStart = i + 1; 
 					countSpiltIdx = 0;
 				}
 			}
 		}
-		
+
 		//回调并更新
 		kcode.getCurrentIdxAndUpdateIt(this);
 	}
@@ -144,14 +156,18 @@ public class BuildRPCMessageHandler implements Runnable{
 		int isSuccess = buildBoolean(buffer, splitIdxList[3] + 1);
 		int useTime = buildInt(buffer, splitIdxList[4] + 1, splitIdxList[5]);
 		int secondTimeStamp = buildMinuteTimeStamp(buffer, splitIdxList[5] + 1);
+		//System.out.println(mainService+','+mainIP+','+calledService+','+calledIP+','+isSuccess+','+useTime+','+secondTimeStamp);
 		//String range3Key = new StringBuilder().append(calledService).append("-").append(secondTimeStamp).toString();
 		
 		//二阶段统计
+
+		
 		if(cachedMinute != secondTimeStamp) {
 			cachedMinute = secondTimeStamp;
 			cachedMap = range2MessageMap.get(secondTimeStamp);
 			if(cachedMap == null) {
 				synchronized (range2lockObject) {
+					
 					if(!range2MessageMap.containsKey(secondTimeStamp)) {
 						cachedMap = new ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>();
 						range2MessageMap.put(secondTimeStamp, cachedMap);
@@ -162,6 +178,7 @@ public class BuildRPCMessageHandler implements Runnable{
 				//TODO 此时为读到新的一分钟时间戳的数据
 			}
 		}
+
 		String range2Key = new StringBuilder().append(mainService).append('-').append(calledService).toString();
 		ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
 		if(ipResult == null) {
@@ -220,7 +237,7 @@ public class BuildRPCMessageHandler implements Runnable{
 	private String buildString(ByteBuffer buffer, int startIdx, int endIndex) {
 		StringBuilder builder = new StringBuilder();
 		for(int i = startIdx; i < endIndex; i++) {
-			builder.append(buffer.get(i));
+			builder.append((char)buffer.get(i));
 		}
 		return builder.toString();
 	}
@@ -292,7 +309,9 @@ public class BuildRPCMessageHandler implements Runnable{
 	}
 
 	
-	
+	public String printInfo() {
+		return startIndex + "," + length;
+	}
 	
 	
 }

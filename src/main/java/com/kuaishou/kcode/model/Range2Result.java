@@ -38,7 +38,16 @@ public class Range2Result {
 		int ans = -1;
 		while(count < index) {
 			ans = queue.poll();
+			count++;
 		}
 		return ans;
+	}
+
+
+
+	@Override
+	public String toString() {
+		return "Range2Result [successRate=" + successRate + ", mainIP=" + mainIP + ", calledIP="
+				+ calledIP + "]";
 	}
 }

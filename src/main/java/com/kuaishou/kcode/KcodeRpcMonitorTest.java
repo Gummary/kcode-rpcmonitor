@@ -21,14 +21,14 @@ public class KcodeRpcMonitorTest {
         KcodeRpcMonitor kcodeRpcMonitor = new KcodeRpcMonitorImpl();
 
         long startNs = nanoTime();
-        kcodeRpcMonitor.prepare("/home/yaoping/kuaishou/rpcmonitor/2kcodeRpcMonitor.data");
+        kcodeRpcMonitor.prepare("F:\\Contest\\kcodeData\\2kcodeRpcMonitor.data");
         System.out.println("prepare 耗时(ms):" + NANOSECONDS.toMillis(nanoTime() - startNs));
 
         // 读取checkPair.result文件
-        Map<CheckPairKey, Set<CheckPairResult>> checkPairMap = createCheckPairMap("请更换成自己本地的checkPair.result路径 ");
+        Map<CheckPairKey, Set<CheckPairResult>> checkPairMap = createCheckPairMap("F:\\Contest\\kcodeData\\checkPair.result");
 
         // 读取checkResponder.result文件
-        Map<CheckResponderKey, CheckResponderResult> checkResponderMap = createCheckResponderMap("请更换成自己本地的checkResponder.result路径");
+        Map<CheckResponderKey, CheckResponderResult> checkResponderMap = createCheckResponderMap("F:\\Contest\\kcodeData\\checkResponder.result");
 
         // 评测checkPair
         checkPair(kcodeRpcMonitor, checkPairMap);
