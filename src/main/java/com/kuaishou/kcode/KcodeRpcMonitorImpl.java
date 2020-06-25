@@ -177,6 +177,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 					}
 				});
 			}
+			range2ComputePool.shutdown();
+			range2ComputePool.awaitTermination(10, TimeUnit.SECONDS);
 		} catch (InterruptedException | ExecutionException | IOException e) {
 //			System.out.println(e.getMessage());
 		} finally {
@@ -245,9 +247,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
-        if(!range2ComputePool.isShutdown()) {
-        	range2ComputePool.shutdown();
-		}
 //    	System.out.println("count"+count);
 //    	globalAverageMeter.getStatistic();
 
