@@ -61,7 +61,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private int cachedMinuteTimeStamp = -1;
 	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedFunctionMap = null;
 
-	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+//	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
 	//利用线程池优化2阶段
 	private static ExecutorService range2ComputePool  = Executors.newFixedThreadPool(CORE_THREAD_NUM);
 	private static AtomicInteger computeIdx = new AtomicInteger();
@@ -83,7 +83,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public void prepare(String path) {
-    	globalAverageMeter.startPrepareTotalTime();
+//    	globalAverageMeter.startPrepareTotalTime();
     	RandomAccessFile randomAccessFile;
     	boolean needReadNext = true;
 		try {
@@ -192,8 +192,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			rpcMessageHandlerPool.shutdown();
 			blockHandlerPool.shutdown();
 
-			globalAverageMeter.updatePrepareTotalTime();
-			globalAverageMeter.startStage2Query();
+//			globalAverageMeter.updatePrepareTotalTime();
+//			globalAverageMeter.startStage2Query();
 		}
     }
 
@@ -210,10 +210,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		}
     	String computedKey = minuteTimeStamp + range2Key;
 		ArrayList<String> result = computedRange2Result.get(computedKey);
-		globalAverageMeter.updateStage2Query();
+//		globalAverageMeter.updateStage2Query();
 		if(result != null) {
 			count++;
-			globalAverageMeter.updateStage2Query();
+//			globalAverageMeter.updateStage2Query();
 			return result;
 		}else {
 			return new ArrayList<>();
@@ -262,7 +262,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
-        globalAverageMeter.getStatistic("Count: "+count);
+//        globalAverageMeter.getStatistic("Count: "+count);
 
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	DecimalFormat decimalFormat = new DecimalFormat("#.00");
