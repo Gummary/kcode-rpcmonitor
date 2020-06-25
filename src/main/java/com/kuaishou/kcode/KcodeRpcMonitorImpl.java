@@ -172,6 +172,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 });
             }
             stage2latch.await();
+            
+            
+            
+            
         } catch (InterruptedException | ExecutionException | IOException e) {
         } finally {
             rpcMessageHandlerPool.shutdown();
@@ -186,7 +190,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
 
-        String range2Key = caller + "-" + responder + time;
+        String range2Key = new StringBuilder().append(caller).append("-").append(responder).append(time).toString();
         ArrayList<String> result = computedRange2Result.get(range2Key);
 
 //			globalAverageMeter.updateStage2Query();
@@ -199,8 +203,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public String checkResponder(String responder, String start, String end) throws Exception {
 //        globalAverageMeter.getStatistic("Count: "+count);
 
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-        DecimalFormat decimalFormat = new DecimalFormat("#.00");
+
         String result = ".00%";
         try {
             int startTimeStamp = (int) (simpleDateFormat.parse(start).getTime() / 60000);
@@ -219,7 +222,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 }
             }
             double resultDouble = rate * 100 / count;
-            String resultString = decimalFormat.format(resultDouble);
+            String resultString = format.format(resultDouble);
             if (resultDouble - 0.0d >= 1e-4) {
                 result = resultString + "%";
             }
