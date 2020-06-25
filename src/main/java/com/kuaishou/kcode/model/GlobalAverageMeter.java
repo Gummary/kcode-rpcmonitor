@@ -109,4 +109,16 @@ public class GlobalAverageMeter {
         throw new Exception(builder.toString());
     }
 
+    public void getStatistic(String appendMsg) throws Exception {
+        StringBuilder builder = new StringBuilder();
+        builder.append("PrepareTotalTime\n");
+        builder.append(prepareTotalTime.toString());
+        builder.append("\nStage2TotalTime\n");
+        builder.append(stage2Query.toString());
+        builder.append('\n');
+        builder.append(appendMsg);
+
+        throw new Exception(builder.toString());
+    }
+
 }

@@ -247,8 +247,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
-    	System.out.println("count"+count);
-    	globalAverageMeter.getStatistic();
+        globalAverageMeter.getStatistic("Count: "+count);
 
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	DecimalFormat decimalFormat = new DecimalFormat("#.00");
