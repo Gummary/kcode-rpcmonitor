@@ -23,4 +23,5 @@ src/test/java/com/kuaishou/kcode/CheckResponderResult.java
 src/test/java/com/kuaishou/kcode/KcodeRpcMonitorTest.java
 src/test/java/com/kuaishou/kcode/KcodeUtils.java
 src/main/assembly/*
+src/main/java/com/kuaishou/kcode/model/GlobalAverageMeter.java
 pom.xml

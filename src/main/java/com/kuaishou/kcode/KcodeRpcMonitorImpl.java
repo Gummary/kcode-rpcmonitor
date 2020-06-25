@@ -2,6 +2,7 @@ package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
+import com.kuaishou.kcode.model.GlobalAverageMeter;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.SuccessRate;
 
@@ -53,6 +54,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 	private int cachedMinuteTimeStamp = -1;
 	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedFunctionMap = null;
+
+	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
 	
 	
 	private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
@@ -69,6 +72,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public void prepare(String path) {
+    	globalAverageMeter.startPrepareTotalTime();
     	RandomAccessFile randomAccessFile;
     	boolean needReadNext = true;
 		try {
@@ -125,6 +129,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		} finally {
 			rpcMessageHandlerPool.shutdown();
 			blockHandlerPool.shutdown();
+
+			globalAverageMeter.updatePrepareTotalTime();
+			globalAverageMeter.startStage2Query();
 		}
     }
 
@@ -170,12 +177,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
+    	globalAverageMeter.updateStage2Query();
     	return result;
     }
 
     @Override
-	public String checkResponder(String responder, String start, String end) {
+	public String checkResponder(String responder, String start, String end) throws Exception {
 
+    	globalAverageMeter.getStatistic();
 
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	DecimalFormat decimalFormat = new DecimalFormat("#.00");
