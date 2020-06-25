@@ -4,6 +4,7 @@ import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
 import com.kuaishou.kcode.model.GlobalAverageMeter;
 import com.kuaishou.kcode.model.Range2Result;
+import com.kuaishou.kcode.model.Range3Result;
 import com.kuaishou.kcode.model.SuccessRate;
 
 import java.io.IOException;
@@ -60,11 +61,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
     //	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
-    //利用线程池优化2阶段
-    private static ExecutorService range2ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
+    //利用线程池优化2,3阶段
+    private static ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static AtomicInteger computeIdx = new AtomicInteger();
-    private static int[] keyList;
-    private static ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<String, ArrayList<String>>();
+    private static ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>();
 
     //TEST
     // 不要修改访问级别
@@ -100,9 +101,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             //System.out.println(System.currentTimeMillis() - curTimestamp);//TEST
 
             curBlock = blocks[0];//当前MessageHandler处理的块的位置
-            for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
+            for (BuildRPCMessageHandler rpcMessageHandler : writeRPCMessageHandlers) {
                 //TODO 是否需要判断当前block可读长度 > 这个Block要工作的长度？
-                getCurrentIdxAndUpdateIt(writeRPCMessageHandlers[i]);
+                getCurrentIdxAndUpdateIt(rpcMessageHandler);
 
             }
 
@@ -124,77 +125,102 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                         continue;
                     }
                     directMemoryBlockHandler.setStartPosition(startPosition);
-                    if (fileSize - startPosition > BLOCK_SIZE) {
-                        directMemoryBlockHandler.setLength(BLOCK_SIZE);
-                    } else {
-                        directMemoryBlockHandler.setLength(fileSize - startPosition);
-                    }
+                    directMemoryBlockHandler.setLength(Math.min(fileSize - startPosition, BLOCK_SIZE));
                     blockHandlerPool.submit(directMemoryBlockHandler);
                 }
             }
             rpcMessageHandlerPool.shutdown();
             rpcMessageHandlerPool.awaitTermination(20000, TimeUnit.MILLISECONDS);
 
-            CountDownLatch stage2latch = new CountDownLatch(CORE_THREAD_NUM);
-            keyList = new int[range2MessageMap.size()];
-            Enumeration<Integer> enumeration = range2MessageMap.keys();
-            int i = 0;
-            while (enumeration.hasMoreElements()) {
-                keyList[i++] = enumeration.nextElement();
-            }
-            for (i = 0; i < CORE_THREAD_NUM; i++) {
-                range2ComputePool.execute(() -> {
-                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                    int workIndex = computeIdx.getAndIncrement();
-                    while (workIndex < keyList.length) {
-                        int workMinuteStamp = keyList[workIndex];
-                        ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
-                        for (Entry<String, ConcurrentHashMap<String, Range2Result>> node : functionMap.entrySet()) {
-                            String key = node.getKey();
-                            ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
-                            Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
-                            ArrayList<String> resultList = new ArrayList<>();
-                            while (resultIterator.hasNext()) {
-                                Range2Result resultNnode = resultIterator.next().getValue();
-                                StringBuilder builder = new StringBuilder();
-                                builder.append(resultNnode.mainIP).append(',')
-                                        .append(resultNnode.calledIP).append(',')
-                                        .append(resultNnode.computeSuccessRate(format)).append(',')
-                                        .append(resultNnode.computeP99());
-                                resultList.add(builder.toString());
-                            }
-                            String date = simpleDateFormat.format(new Date(workMinuteStamp*60000L));
-                            computedRange2Result.put(key+date, resultList);
-                        }
-                        workIndex = computeIdx.getAndIncrement();
-                    }
-                    stage2latch.countDown();
-                });
-            }
-            stage2latch.await();
-            
-            
-            
-            
-        } catch (InterruptedException | ExecutionException | IOException e) {
+            computeRange2Result();
+            computeRange3Result();
+
+
+        } catch (InterruptedException | ExecutionException | IOException ignored) {
         } finally {
             rpcMessageHandlerPool.shutdown();
             blockHandlerPool.shutdown();
-            range2ComputePool.shutdown();
+            range23ComputePool.shutdown();
 
 //			globalAverageMeter.updatePrepareTotalTime();
 //			globalAverageMeter.startStage2Query();
         }
     }
 
+    private void computeRange3Result() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(CORE_THREAD_NUM);
+        String[] keyList = range3Result.keySet().toArray(new String[0]);
+        computeIdx.set(0);
+        for (int i = 0; i < CORE_THREAD_NUM; i++) {
+            range23ComputePool.execute(() -> {
+                int workIndex = computeIdx.getAndIncrement();
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+
+                while (workIndex < keyList.length) {
+                    String workKey = keyList[workIndex];
+
+                    ConcurrentHashMap<Integer, SuccessRate> minuteSuccessRate = range3Result.get(workKey);
+                    ArrayList<Range3Result> currentKeyResults = new ArrayList<>();
+                    for (Entry<Integer, SuccessRate> entry :
+                            minuteSuccessRate.entrySet()) {
+                        int minuteTimeStamp = entry.getKey();
+                        String dateTimeStamp = simpleDateFormat.format(new Date(minuteTimeStamp * 60000L));
+                        SuccessRate successRate = entry.getValue();
+                        double rate = (double) successRate.success.get() / successRate.total.get();
+                        currentKeyResults.add(new Range3Result(dateTimeStamp, rate));
+                    }
+                    Collections.sort(currentKeyResults);
+                    computedRange3Result.put(workKey, currentKeyResults);
+                    workIndex = computeIdx.getAndIncrement();
+                }
+                latch.countDown();
+            });
+        }
+        latch.await();
+    }
+
+    private void computeRange2Result() throws InterruptedException {
+
+        CountDownLatch latch = new CountDownLatch(CORE_THREAD_NUM);
+        Integer[] keyList = range2MessageMap.keySet().toArray(new Integer[0]);
+        computeIdx.set(0);
+        for (int i = 0; i < CORE_THREAD_NUM; i++) {
+            range23ComputePool.execute(() -> {
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+                int workIndex = computeIdx.getAndIncrement();
+                while (workIndex < keyList.length) {
+                    int workMinuteStamp = keyList[workIndex];
+                    ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
+                    for (Entry<String, ConcurrentHashMap<String, Range2Result>> node : functionMap.entrySet()) {
+                        String key = node.getKey();
+                        ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
+                        Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
+                        ArrayList<String> resultList = new ArrayList<>();
+                        while (resultIterator.hasNext()) {
+                            Range2Result resultNnode = resultIterator.next().getValue();
+                            String builder = resultNnode.mainIP + ',' +
+                                    resultNnode.calledIP + ',' +
+                                    resultNnode.computeSuccessRate(format) + ',' +
+                                    resultNnode.computeP99();
+                            resultList.add(builder);
+                        }
+                        String date = simpleDateFormat.format(new Date(workMinuteStamp * 60000L));
+                        computedRange2Result.put(key + date, resultList);
+                    }
+                    workIndex = computeIdx.getAndIncrement();
+                }
+                latch.countDown();
+            });
+        }
+        latch.await();
+    }
+
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
 
-        String range2Key = new StringBuilder().append(caller).append("-").append(responder).append(time).toString();
+        String range2Key = caller + "-" + responder + time;
         ArrayList<String> result = computedRange2Result.get(range2Key);
-
-//			globalAverageMeter.updateStage2Query();
-
+//        globalAverageMeter.updateStage2Query();
         return result == null ? new ArrayList<>() : result;
     }
 
@@ -203,32 +229,27 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public String checkResponder(String responder, String start, String end) throws Exception {
 //        globalAverageMeter.getStatistic("Count: "+count);
 
-
+        ArrayList<Range3Result> results = computedRange3Result.get(responder);
+        if(results == null) {
+            return "-1.00%";
+        }
+        double rate = 0.0d;
+        int count = 0;
         String result = ".00%";
-        try {
-            int startTimeStamp = (int) (simpleDateFormat.parse(start).getTime() / 60000);
-            int endTimeStamp = (int) (simpleDateFormat.parse(end).getTime() / 60000);
-            ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(responder);
-            if (successRateMap == null) {
-                return "-1.00%";
-            }
-            double rate = 0.0d;
-            int count = 0;
-            for (int i = startTimeStamp; i <= endTimeStamp; i++) {
-                SuccessRate successRate = successRateMap.get(i);
-                if (successRate != null) {
-                    rate += (double) successRate.success.get() / successRate.total.get();
-                    count++;
+        for (Range3Result minuteResult:
+                results) {
+            if (minuteResult.getTimeStamp().compareTo(start)>=0) {
+                if(minuteResult.getTimeStamp().compareTo(end) > 0) {
+                    break;
                 }
+                rate += minuteResult.getSuccessRate();
+                count += 1;
             }
-            double resultDouble = rate * 100 / count;
-            String resultString = format.format(resultDouble);
-            if (resultDouble - 0.0d >= 1e-4) {
-                result = resultString + "%";
-            }
-
-        } catch (ParseException e) {
-            e.printStackTrace();
+        }
+        double resultDouble = rate * 100 / count;
+        String resultString = format.format(resultDouble);
+        if (resultDouble - 0.0d >= 1e-4) {
+            result = resultString + "%";
         }
         return result;
     }
