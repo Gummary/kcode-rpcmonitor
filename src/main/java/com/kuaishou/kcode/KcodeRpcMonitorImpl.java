@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 	public static final long BLOCK_SIZE = 500 * 1024 * 1024;
-	public static final int MESSAGE_BATCH_SIZE = 5 * 1024 * 1024;
+	public static final int MESSAGE_BATCH_SIZE = 50 * 1024 * 1024;
 	private static final int LOAD_BLOCK_THRESHOLD = 400 * 1024 * 1024;
 	private static final int CORE_THREAD_NUM = 7;
 	private static final int MAX_THREAD_NUM = 5;
