@@ -61,7 +61,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private int cachedMinuteTimeStamp = -1;
 	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedFunctionMap = null;
 
-//	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
 	//利用线程池优化2阶段
 	private static ExecutorService range2ComputePool  = Executors.newFixedThreadPool(CORE_THREAD_NUM);
 	private static AtomicInteger computeIdx = new AtomicInteger();
@@ -137,6 +137,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
 			rpcMessageHandlerPool.shutdown();
 			rpcMessageHandlerPool.awaitTermination(10000, TimeUnit.MILLISECONDS);
+
+			CountDownLatch stage2latch = new CountDownLatch(CORE_THREAD_NUM);
 			keyList = new int[range2MessageMap.size()];
 			Enumeration<Integer> enumeration = range2MessageMap.keys();
 			int i = 0;
@@ -145,53 +147,48 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //				System.out.println(keyList[i-1]);
 			}
 			for(i = 0; i < CORE_THREAD_NUM; i++) {
-				range2ComputePool.execute(new Runnable() {
-					
-					@Override
-					public void run() {
-						int workIndex = computeIdx.getAndIncrement();
-						DecimalFormat format = new DecimalFormat("#.00");
-				    	format.setRoundingMode(RoundingMode.DOWN);
-						while(workIndex < keyList.length) {
-							int workMinuteStamp = keyList[workIndex];
-							ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
-							Iterator<Entry<String, ConcurrentHashMap<String, Range2Result>>> iterator = functionMap.entrySet().iterator();
-							while(iterator.hasNext()) {
-								Entry<String, ConcurrentHashMap<String, Range2Result>> node = iterator.next();
-								String key = node.getKey();
-								ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
-								Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
-								ArrayList<String> resultList = new ArrayList<String>();
-								while(resultIterator.hasNext()) {
-									Range2Result resultNnode = resultIterator.next().getValue();
+				range2ComputePool.execute(() -> {
+					int workIndex = computeIdx.getAndIncrement();
+					DecimalFormat format = new DecimalFormat("#.00");
+					format.setRoundingMode(RoundingMode.DOWN);
+					while(workIndex < keyList.length) {
+						int workMinuteStamp = keyList[workIndex];
+						ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
+						Iterator<Entry<String, ConcurrentHashMap<String, Range2Result>>> iterator = functionMap.entrySet().iterator();
+						while(iterator.hasNext()) {
+							Entry<String, ConcurrentHashMap<String, Range2Result>> node = iterator.next();
+							String key = node.getKey();
+							ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
+							Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
+							ArrayList<String> resultList = new ArrayList<String>();
+							while(resultIterator.hasNext()) {
+								Range2Result resultNnode = resultIterator.next().getValue();
 //									System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
-									StringBuilder builder = new StringBuilder();
-									 
-									 
-									builder.append(resultNnode.mainIP).append(',')
-										.append(resultNnode.calledIP).append(',')
-										.append(resultNnode.computeSuccessRate(format)).append(',')
-										.append(resultNnode.computeP99());
-									resultList.add(builder.toString());
-								}
-								computedRange2Result.put(workMinuteStamp+key, resultList);
-							}	
-							workIndex = computeIdx.getAndIncrement();
+								StringBuilder builder = new StringBuilder();
+
+
+								builder.append(resultNnode.mainIP).append(',')
+									.append(resultNnode.calledIP).append(',')
+									.append(resultNnode.computeSuccessRate(format)).append(',')
+									.append(resultNnode.computeP99());
+								resultList.add(builder.toString());
+							}
+							computedRange2Result.put(workMinuteStamp+key, resultList);
 						}
-						
+						workIndex = computeIdx.getAndIncrement();
 					}
+					stage2latch.countDown();
 				});
 			}
-			range2ComputePool.shutdown();
-			range2ComputePool.awaitTermination(30, TimeUnit.SECONDS);
+			stage2latch.await();
 		} catch (InterruptedException | ExecutionException | IOException e) {
 //			System.out.println(e.getMessage());
 		} finally {
 			rpcMessageHandlerPool.shutdown();
 			blockHandlerPool.shutdown();
 
-//			globalAverageMeter.updatePrepareTotalTime();
-//			globalAverageMeter.startStage2Query();
+			globalAverageMeter.updatePrepareTotalTime();
+			globalAverageMeter.startStage2Query();
 		}
     }
 
@@ -207,12 +204,13 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			e1.printStackTrace();
 		}
     	String computedKey = minuteTimeStamp + range2Key;
-    	if(computedRange2Result.containsKey(computedKey)) {
+		ArrayList<String> result = computedRange2Result.get(computedKey);
+		if(result != null) {
 			count++;
-//			globalAverageMeter.updateStage2Query();
-			return computedRange2Result.get(computedKey);
+			return result;
 		}
-    	ArrayList<String> result = new ArrayList<String>();
+
+    	result = new ArrayList<>();
 
 
 		ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
@@ -247,13 +245,13 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
 		}
 		
-//    	globalAverageMeter.updateStage2Query();
+    	globalAverageMeter.updateStage2Query();
     	return result;
     }
 
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
-//        globalAverageMeter.getStatistic("Count: "+count);
+        globalAverageMeter.getStatistic("Count: "+count);
 
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	DecimalFormat decimalFormat = new DecimalFormat("#.00");
