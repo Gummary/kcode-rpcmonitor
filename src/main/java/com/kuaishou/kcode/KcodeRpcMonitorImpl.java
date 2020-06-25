@@ -213,6 +213,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	result = new ArrayList<>();
 
 
+
 		ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
 		
 		
@@ -248,6 +249,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	globalAverageMeter.updateStage2Query();
     	return result;
     }
+
 
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
