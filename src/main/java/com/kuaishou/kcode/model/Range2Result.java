@@ -44,7 +44,7 @@ public class Range2Result {
     }
 
 
-    public int computeP99() {
+    public synchronized int computeP99() {
 
         if(ansP99 < 0) {
             int ans = -1;
