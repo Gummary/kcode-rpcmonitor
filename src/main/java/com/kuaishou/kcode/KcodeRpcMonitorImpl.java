@@ -63,7 +63,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private static AtomicInteger computeIdx = new AtomicInteger();
 	private static int[] keyList;
 	private static ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<String, ArrayList<String>>();
-
+	//TEST
+	private int count = 0;
 	// 不要修改访问级别
     public KcodeRpcMonitorImpl() {
 
@@ -195,7 +196,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	DecimalFormat format = new DecimalFormat("#.00");
     	format.setRoundingMode(RoundingMode.DOWN);
     	String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
-    	int count = 0;
     	try {
 			//优化：先判断是否已经计算过结果了
     		int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
@@ -238,9 +238,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
 		} catch (ParseException e) {
 			e.printStackTrace();
-		}finally {
-			System.out.println("compute hit count:"+count);
-			range2ComputePool.shutdownNow();
 		}
     	globalAverageMeter.updateStage2Query();
     	return result;
@@ -248,7 +245,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
-
+    	System.out.println("count"+count);
     	globalAverageMeter.getStatistic();
 
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
