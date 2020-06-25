@@ -183,7 +183,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				});
 			}
 			range2ComputePool.shutdown();
-			range2ComputePool.awaitTermination(20, TimeUnit.SECONDS);
+			range2ComputePool.awaitTermination(30, TimeUnit.SECONDS);
 		} catch (InterruptedException | ExecutionException | IOException e) {
 //			System.out.println(e.getMessage());
 		} finally {
