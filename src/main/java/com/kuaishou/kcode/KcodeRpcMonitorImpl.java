@@ -56,7 +56,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
 	private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-	private final static DecimalFormat format = new DecimalFormat("#.00");
+	private static DecimalFormat format;
 
 	private int cachedMinuteTimeStamp = -1;
 	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedFunctionMap = null;
@@ -71,7 +71,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private int count = 0;
 	// 不要修改访问级别
     public KcodeRpcMonitorImpl() {
-
+    	format = new DecimalFormat("#.00");
+    	format.setRoundingMode(RoundingMode.DOWN);
     	range3Result = new ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>>();
     	for(int i = 0; i < writeRPCMessageHandlers.length; i++) {
     		writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result, range2lockObject, range3lockObject);
@@ -197,53 +198,55 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
 	public List<String> checkPair(String caller, String responder, String time) {
 
-    	ArrayList<String> result = new ArrayList<String>();
-    	format.setRoundingMode(RoundingMode.DOWN);
+    	//优化：先判断是否已经计算过结果了
     	String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
-    	try {
-			//优化：先判断是否已经计算过结果了
-    		int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
-			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
-			String computedKey = minuteTimeStamp + range2Key;
+    	int minuteTimeStamp = -1;
+		try {
+			minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
+		} catch (ParseException e1) {
+			e1.printStackTrace();
+		}
+    	String computedKey = minuteTimeStamp + range2Key;
+    	if(computedRange2Result.containsKey(computedKey)) {
+			count++;
+			globalAverageMeter.updateStage2Query();
+			return computedRange2Result.get(computedKey);
+		}
+    	ArrayList<String> result = new ArrayList<String>();
 
-			if(computedRange2Result.containsKey(computedKey)) {
-				count++;
-				globalAverageMeter.updateStage2Query();
-				return computedRange2Result.get(computedKey);
-			}
+
+		ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
+		
+		
+		if(minuteTimeStamp != cachedMinuteTimeStamp) {
+			functionMap = range2MessageMap.get(minuteTimeStamp);
+			cachedMinuteTimeStamp = minuteTimeStamp;
+			cachedFunctionMap = functionMap;
+		} else {
+			functionMap = cachedFunctionMap;
+		}
+
+
+		if(functionMap != null) {
 			
-			
-			if(minuteTimeStamp != cachedMinuteTimeStamp) {
-				functionMap = range2MessageMap.get(minuteTimeStamp);
-				cachedMinuteTimeStamp = minuteTimeStamp;
-				cachedFunctionMap = functionMap;
-			} else {
-				functionMap = cachedFunctionMap;
-			}
-
-
-			if(functionMap != null) {
-				
-				ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
-				if(ipMaps != null) {
-					Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
-					while(iterator.hasNext()) {
-						Range2Result node = iterator.next().getValue();
+			ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
+			if(ipMaps != null) {
+				Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
+				while(iterator.hasNext()) {
+					Range2Result node = iterator.next().getValue();
 //						System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
-						StringBuilder builder = new StringBuilder();
-						 
-						 
-						builder.append(node.mainIP).append(',')
-							.append(node.calledIP).append(',')
-							.append(node.computeSuccessRate(format)).append(',')
-							.append(node.computeP99());
-						result.add(builder.toString());
-					}
+					StringBuilder builder = new StringBuilder();
+					 
+					 
+					builder.append(node.mainIP).append(',')
+						.append(node.calledIP).append(',')
+						.append(node.computeSuccessRate(format)).append(',')
+						.append(node.computeP99());
+					result.add(builder.toString());
 				}
 			}
-		} catch (ParseException e) {
-			e.printStackTrace();
 		}
+		
     	globalAverageMeter.updateStage2Query();
     	return result;
     }
