@@ -210,50 +210,53 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		}
     	String computedKey = minuteTimeStamp + range2Key;
 		ArrayList<String> result = computedRange2Result.get(computedKey);
+		globalAverageMeter.updateStage2Query();
 		if(result != null) {
 			count++;
 			globalAverageMeter.updateStage2Query();
 			return result;
+		}else {
+			return new ArrayList<>();
 		}
-
-    	result = new ArrayList<>();
-
-
-
-		ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
-		
-		
-		if(minuteTimeStamp != cachedMinuteTimeStamp) {
-			functionMap = range2MessageMap.get(minuteTimeStamp);
-			cachedMinuteTimeStamp = minuteTimeStamp;
-			cachedFunctionMap = functionMap;
-		} else {
-			functionMap = cachedFunctionMap;
-		}
-
-
-		if(functionMap != null) {
-			
-			ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
-			if(ipMaps != null) {
-				Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
-				while(iterator.hasNext()) {
-					Range2Result node = iterator.next().getValue();
-//						System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
-					StringBuilder builder = new StringBuilder();
-					 
-					 
-					builder.append(node.mainIP).append(',')
-						.append(node.calledIP).append(',')
-						.append(node.computeSuccessRate(format)).append(',')
-						.append(node.computeP99());
-					result.add(builder.toString());
-				}
-			}
-		}
-		
-    	globalAverageMeter.updateStage2Query();
-    	return result;
+//
+//    	result = new ArrayList<>();
+//
+//
+//
+//		ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
+//		
+//		
+//		if(minuteTimeStamp != cachedMinuteTimeStamp) {
+//			functionMap = range2MessageMap.get(minuteTimeStamp);
+//			cachedMinuteTimeStamp = minuteTimeStamp;
+//			cachedFunctionMap = functionMap;
+//		} else {
+//			functionMap = cachedFunctionMap;
+//		}
+//
+//
+//		if(functionMap != null) {
+//			
+//			ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
+//			if(ipMaps != null) {
+//				Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
+//				while(iterator.hasNext()) {
+//					Range2Result node = iterator.next().getValue();
+////						System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
+//					StringBuilder builder = new StringBuilder();
+//					 
+//					 
+//					builder.append(node.mainIP).append(',')
+//						.append(node.calledIP).append(',')
+//						.append(node.computeSuccessRate(format)).append(',')
+//						.append(node.computeP99());
+//					result.add(builder.toString());
+//				}
+//			}
+//		}
+//		
+//    	globalAverageMeter.updateStage2Query();
+//    	return result;
     }
 
 
