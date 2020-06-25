@@ -195,12 +195,15 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	DecimalFormat format = new DecimalFormat("#.00");
     	format.setRoundingMode(RoundingMode.DOWN);
     	String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
+    	int count = 0;
     	try {
 			//优化：先判断是否已经计算过结果了
     		int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
 			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
 			String computedKey = minuteTimeStamp + range2Key;
+			
 			if(computedRange2Result.contains(computedKey)) {
+				count++;
 				return computedRange2Result.get(computedKey);
 			}
 			
@@ -236,6 +239,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}finally {
+			System.out.println("compute hit count:"+count);
 			range2ComputePool.shutdownNow();
 		}
     	globalAverageMeter.updateStage2Query();
