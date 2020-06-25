@@ -35,10 +35,9 @@ public class BuildRPCMessageHandler implements Runnable{
 	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
 			
 	
-	public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode, 
-			ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
-			ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result,
-			Object range2lockObject, Object range3lockObject){
+	public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
+								  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
+								  ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result){
 		this.kcode = kcode;
 		this.range2MessageMap = range2MessageMap;
 		this.range3Result = range3Result;

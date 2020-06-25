@@ -2,7 +2,6 @@ package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
-import com.kuaishou.kcode.model.GlobalAverageMeter;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
 import com.kuaishou.kcode.model.SuccessRate;
@@ -13,7 +12,6 @@ import java.math.RoundingMode;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.text.DecimalFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
@@ -31,29 +29,23 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public static final long BLOCK_SIZE = 500 * 1024 * 1024;
     public static final int MESSAGE_BATCH_SIZE = 50 * 1024 * 1024;
     private static final int LOAD_BLOCK_THRESHOLD = 400 * 1024 * 1024;
-    private static final int CORE_THREAD_NUM = 7;
-    private static final int MAX_THREAD_NUM = 5;
-    private static final long TIME_OUT = 80;
+    private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
-    //	private static final ExecutorService writeToFileHandlerPool = Executors.newCachedThreadPool();
     public RandomAccessFile rpcDataFile;
     public FileChannel rpcDataFileChannel;
     private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
-    private ConcurrentHashMap<String, RandomAccessFile> files = new ConcurrentHashMap<String, RandomAccessFile>();
     private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
     private DirectMemoryBlockHandler directMemoryBlockHandler;
     private BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
-    private MappedByteBuffer[] blocks = new MappedByteBuffer[2];
-    private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
+    private final MappedByteBuffer[] blocks = new MappedByteBuffer[2];
+    private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
     private int MaxBlockSize = 0;//总共要读的块数
     private int curBlockIdx = 0;//当前读到的block数
     private int curHandledBlockIdx = 0;
     private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
     MappedByteBuffer curBlock = null;
-    private Object lockObject = new Object();//更新下一个任务时的锁
-    private Object range2lockObject = new Object();
-    private Object range3lockObject = new Object();
+    private final Object lockObject = new Object();//更新下一个任务时的锁
 
 
     private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -62,19 +54,19 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     //	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     //利用线程池优化2,3阶段
-    private static ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
-    private static AtomicInteger computeIdx = new AtomicInteger();
-    private static ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>();
+    private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
+    private static final AtomicInteger computeIdx = new AtomicInteger();
+    private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>();
 
     //TEST
     // 不要修改访问级别
     public KcodeRpcMonitorImpl() {
         format = new DecimalFormat("#.00");
         format.setRoundingMode(RoundingMode.DOWN);
-        range3Result = new ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>>();
+        range3Result = new ConcurrentHashMap<>();
         for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
-            writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result, range2lockObject, range3lockObject);
+            writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result);
         }
     }
 
