@@ -235,6 +235,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
 		} catch (ParseException e) {
 			e.printStackTrace();
+		}finally {
+			range2ComputePool.shutdownNow();
 		}
     	globalAverageMeter.updateStage2Query();
     	return result;
