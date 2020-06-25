@@ -97,29 +97,33 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     lastLR -= 1;
                 }
 
-                int readerStartIndex = 0;
+//                int readerStartIndex = 0;
+
                 // 每个线程读取等量的数据
                 int readSize = mapSize / CORE_THREAD_NUM;
+                int[] readerStartIndex = new int[CORE_THREAD_NUM];
+                int[] endIndex = new int[CORE_THREAD_NUM];
+
+                for(int i = 0;i<CORE_THREAD_NUM;i++) {
+                    endIndex[i]  = readerStartIndex[i] + readSize;
+                    // 为除了最后一个线程的线程找到有边界
+                    if(i < CORE_THREAD_NUM - 1) {
+                        while (mappedByteBuffer.get(endIndex[i]) != '\n') {
+                            endIndex[i]--;
+                        }
+                        readerStartIndex[i+1] = endIndex[i] + 1;
+                    } else { //最后一个线程的有边界是整个block的右边界
+                        endIndex[i] = lastLR;
+                    }
+                }
                 for (int i = 0; i < CORE_THREAD_NUM; i++) {
                     BuildRPCMessageHandler rpcMessageHandler = readyedMessageHandlers.take();
-                    int endIndex = readerStartIndex + readSize;
-
-                    // 为除了最后一个线程的线程找到有边界
-                    if (i < CORE_THREAD_NUM - 1) {
-                        while (mappedByteBuffer.get(endIndex) != '\n') {
-                            endIndex--;
-                        }
-                    } else { //最后一个线程的有边界是整个block的右边界
-                        endIndex = lastLR;
-                    }
-
                     // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
                     if (i == 0) {
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, readerStartIndex, endIndex);
+                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, readerStartIndex[i], endIndex[i]);
                     } else { //其他线程都是完整的数据
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", readerStartIndex, endIndex);
+                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", readerStartIndex[i], endIndex[i]);
                     }
-                    readerStartIndex = endIndex + 1;
                     rpcMessageHandlerPool.execute(rpcMessageHandler);
                 }
                 StringBuilder builder = new StringBuilder();
@@ -140,8 +144,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         } catch (InterruptedException | IOException ignored) {
         } finally {
-            rpcMessageHandlerPool.shutdown();
-            blockHandlerPool.shutdown();
             range23ComputePool.shutdown();
 
 //			globalAverageMeter.updatePrepareTotalTime();
