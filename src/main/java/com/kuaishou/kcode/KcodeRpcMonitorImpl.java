@@ -16,6 +16,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author kcode
@@ -42,6 +43,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private DirectMemoryBlockHandler directMemoryBlockHandler;
 	private BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
 	private MappedByteBuffer[] blocks = new MappedByteBuffer[2];
+	private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
 	private int MaxBlockSize = 0;//总共要读的块数
 	private int curBlockIdx = 0;//当前读到的block数
 	private int curHandledBlockIdx = 0;
@@ -53,10 +55,13 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 	private int cachedMinuteTimeStamp = -1;
 	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedFunctionMap = null;
+	//利用线程池优化2阶段
+	private static ExecutorService range2ComputePool  = Executors.newFixedThreadPool(CORE_THREAD_NUM);
+	private static AtomicInteger computeIdx = new AtomicInteger();
+	private static int[] keyList;
+	private static ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<String, ArrayList<String>>();
 	
-	
-	private BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<BuildRPCMessageHandler>();
-    // 不要修改访问级别
+	// 不要修改访问级别
     public KcodeRpcMonitorImpl() {
 
     	range3Result = new ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>>();
@@ -120,6 +125,50 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 					blockHandlerPool.submit(directMemoryBlockHandler);
 				}
 			}
+			keyList = new int[range2MessageMap.size()];
+			Enumeration<Integer> enumeration = range2MessageMap.keys();
+			int i = 0;
+			while(enumeration.hasMoreElements()) {
+				keyList[i++] = enumeration.nextElement();
+			}
+			for(i = 0; i < CORE_THREAD_NUM; i++) {
+				range2ComputePool.execute(new Runnable() {
+					
+					@Override
+					public void run() {
+						int workIndex = computeIdx.getAndIncrement();
+						DecimalFormat format = new DecimalFormat("#.00");
+				    	format.setRoundingMode(RoundingMode.DOWN);
+						while(workIndex < keyList.length) {
+							int workMinuteStamp = keyList[workIndex];
+							ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
+							Iterator<Entry<String, ConcurrentHashMap<String, Range2Result>>> iterator = functionMap.entrySet().iterator();
+							while(iterator.hasNext()) {
+								Entry<String, ConcurrentHashMap<String, Range2Result>> node = iterator.next();
+								String key = node.getKey();
+								ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
+								Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
+								ArrayList<String> resultList = new ArrayList<String>();
+								while(iterator.hasNext()) {
+									Range2Result resultNnode = resultIterator.next().getValue();
+//									System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
+									StringBuilder builder = new StringBuilder();
+									 
+									 
+									builder.append(resultNnode.mainIP).append(',')
+										.append(resultNnode.calledIP).append(',')
+										.append(resultNnode.computeSuccessRate(format)).append(',')
+										.append(resultNnode.computeP99());
+									resultList.add(builder.toString());
+								}
+								computedRange2Result.put(workMinuteStamp+key, resultList);
+							}	
+							workIndex = computeIdx.getAndIncrement();
+						}
+						
+					}
+				});
+			}
 		} catch (InterruptedException | ExecutionException | IOException e) {
 //			System.out.println(e.getMessage());
 		} finally {
@@ -135,10 +184,17 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	ArrayList<String> result = new ArrayList<String>();
     	DecimalFormat format = new DecimalFormat("#.00");
     	format.setRoundingMode(RoundingMode.DOWN);
+    	String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
     	try {
-			int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
+			//优化：读是否计算成功
+    		int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
 			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
-
+			String computedKey = minuteTimeStamp + range2Key;
+			if(computedRange2Result.contains(computedKey)) {
+				return computedRange2Result.get(computedKey);
+			}
+			
+			
 			if(minuteTimeStamp != cachedMinuteTimeStamp) {
 				functionMap = range2MessageMap.get(minuteTimeStamp);
 				cachedMinuteTimeStamp = minuteTimeStamp;
@@ -149,7 +205,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
 			if(functionMap != null) {
-				String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
+				
 				ConcurrentHashMap<String, Range2Result> ipMaps = functionMap.get(range2Key);
 				if(ipMaps != null) {
 					Iterator<Entry<String, Range2Result>> iterator = ipMaps.entrySet().iterator();
