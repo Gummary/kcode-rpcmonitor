@@ -149,7 +149,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 								ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
 								Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
 								ArrayList<String> resultList = new ArrayList<String>();
-								while(iterator.hasNext()) {
+								while(resultIterator.hasNext()) {
 									Range2Result resultNnode = resultIterator.next().getValue();
 //									System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
 									StringBuilder builder = new StringBuilder();
@@ -186,7 +186,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     	format.setRoundingMode(RoundingMode.DOWN);
     	String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
     	try {
-			//优化：读是否计算成功
+			//优化：先判断是否已经计算过结果了
     		int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
 			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
 			String computedKey = minuteTimeStamp + range2Key;
