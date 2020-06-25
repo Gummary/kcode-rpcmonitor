@@ -138,7 +138,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			rpcMessageHandlerPool.shutdown();
 			rpcMessageHandlerPool.awaitTermination(20000, TimeUnit.MILLISECONDS);
 
-			CountDownLatch stage2latch = new CountDownLatch(CORE_THREAD_NUM);
+//			CountDownLatch stage2latch = new CountDownLatch(CORE_THREAD_NUM);
 			keyList = new int[range2MessageMap.size()];
 			Enumeration<Integer> enumeration = range2MessageMap.keys();
 			int i = 0;
@@ -178,12 +178,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 						e.printStackTrace();
 						
 					}finally {
-						stage2latch.countDown();
+//						stage2latch.countDown();
 					}
 					
 				});
 			}
-			stage2latch.await();
+//			stage2latch.await();
+			range2ComputePool.shutdown();
+			range2ComputePool.awaitTermination(20000, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException | ExecutionException | IOException e) {
 //			System.out.println(e.getMessage());
 		} finally {
