@@ -20,9 +20,8 @@ public class BuildRPCMessageHandler implements Runnable{
 	private int length;
 	private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
 	private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
-	private Object range2lockObject;
 
-	
+
 	/**
 	 * 以下为处理横跨两个Block的时候用到的变量
 	 */
@@ -43,7 +42,6 @@ public class BuildRPCMessageHandler implements Runnable{
 		this.kcode = kcode;
 		this.range2MessageMap = range2MessageMap;
 		this.range3Result = range3Result;
-		this.range2lockObject = range2lockObject;
 	}
 	
 	@Override
@@ -163,45 +161,18 @@ public class BuildRPCMessageHandler implements Runnable{
 		
 		if(cachedMinute != secondTimeStamp) {
 			cachedMinute = secondTimeStamp;
+			range2MessageMap.putIfAbsent(secondTimeStamp, new ConcurrentHashMap<>());
 			cachedMap = range2MessageMap.get(secondTimeStamp);
-			if(cachedMap == null) {
-				synchronized (range2lockObject) {
-					
-					if(!range2MessageMap.containsKey(secondTimeStamp)) {
-						cachedMap = new ConcurrentHashMap<>();
-						range2MessageMap.put(secondTimeStamp, cachedMap);
-					}else {
-						cachedMap = range2MessageMap.get(secondTimeStamp);
-					}
-				}
-				//TODO 此时为读到新的一分钟时间戳的数据
-			}
 		}
 
-		String range2Key = new StringBuilder().append(mainService).append('-').append(calledService).toString();
+		String range2Key = mainService + '-' + calledService;
+		cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>());
 		ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
-		if(ipResult == null) {
-			synchronized (range2lockObject) {
-				if(!cachedMap.containsKey(range2Key)) {
-					ipResult = new ConcurrentHashMap<String, Range2Result>();
-					cachedMap.put(range2Key, ipResult);
-				}else {
-					ipResult = cachedMap.get(range2Key);
-				}
-			}
-		}
-		String range2IPKey = new StringBuilder().append(mainIP).append('-').append(calledIP).toString();
+
+
+		String range2IPKey = mainIP + '-' + calledIP;
+		ipResult.putIfAbsent(range2IPKey, new Range2Result(mainIP, calledIP));
 		Range2Result result = ipResult.get(range2IPKey);
-		if(result == null) {
-			synchronized (range2lockObject) {
-				if(!ipResult.containsKey(range2IPKey)) {
-					result = new Range2Result(mainIP, calledIP);
-					ipResult.put(range2IPKey, result);
-				}else {
-					result = ipResult.get(range2IPKey);
-				}
-			}
-		}
 		result.fillMessage(isSuccess, useTime);
 		
 		//三阶段统计

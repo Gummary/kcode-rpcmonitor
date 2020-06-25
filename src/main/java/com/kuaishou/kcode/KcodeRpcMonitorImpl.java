@@ -136,7 +136,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				}
 			}
 			rpcMessageHandlerPool.shutdown();
-			rpcMessageHandlerPool.awaitTermination(10000, TimeUnit.MILLISECONDS);
+			rpcMessageHandlerPool.awaitTermination(20000, TimeUnit.MILLISECONDS);
 
 			CountDownLatch stage2latch = new CountDownLatch(CORE_THREAD_NUM);
 			keyList = new int[range2MessageMap.size()];
@@ -149,31 +149,27 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			for(i = 0; i < CORE_THREAD_NUM; i++) {
 				range2ComputePool.execute(() -> {
 					int workIndex = computeIdx.getAndIncrement();
-					DecimalFormat format = new DecimalFormat("#.00");
-					format.setRoundingMode(RoundingMode.DOWN);
 					while(workIndex < keyList.length) {
 						int workMinuteStamp = keyList[workIndex];
 						ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
-						Iterator<Entry<String, ConcurrentHashMap<String, Range2Result>>> iterator = functionMap.entrySet().iterator();
-						while(iterator.hasNext()) {
-							Entry<String, ConcurrentHashMap<String, Range2Result>> node = iterator.next();
+						for (Entry<String, ConcurrentHashMap<String, Range2Result>> node : functionMap.entrySet()) {
 							String key = node.getKey();
 							ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
 							Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
 							ArrayList<String> resultList = new ArrayList<String>();
-							while(resultIterator.hasNext()) {
+							while (resultIterator.hasNext()) {
 								Range2Result resultNnode = resultIterator.next().getValue();
 //									System.out.println(String.format("mainIP:%s,calledIP:%s", node.mainIP, node.calledIP));
 								StringBuilder builder = new StringBuilder();
 
 
 								builder.append(resultNnode.mainIP).append(',')
-									.append(resultNnode.calledIP).append(',')
-									.append(resultNnode.computeSuccessRate(format)).append(',')
-									.append(resultNnode.computeP99());
+										.append(resultNnode.calledIP).append(',')
+										.append(resultNnode.computeSuccessRate(format)).append(',')
+										.append(resultNnode.computeP99());
 								resultList.add(builder.toString());
 							}
-							computedRange2Result.put(workMinuteStamp+key, resultList);
+							computedRange2Result.put(workMinuteStamp + key, resultList);
 						}
 						workIndex = computeIdx.getAndIncrement();
 					}
