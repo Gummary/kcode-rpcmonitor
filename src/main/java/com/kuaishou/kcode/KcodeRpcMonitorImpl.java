@@ -212,6 +212,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 		ArrayList<String> result = computedRange2Result.get(computedKey);
 		if(result != null) {
 			count++;
+			globalAverageMeter.updateStage2Query();
 			return result;
 		}
 
