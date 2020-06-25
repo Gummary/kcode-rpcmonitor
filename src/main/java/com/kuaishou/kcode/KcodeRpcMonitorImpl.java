@@ -172,11 +172,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 });
             }
             stage2latch.await();
-            range2ComputePool.shutdown();
         } catch (InterruptedException | ExecutionException | IOException e) {
         } finally {
             rpcMessageHandlerPool.shutdown();
             blockHandlerPool.shutdown();
+            range2ComputePool.shutdown();
 
 //			globalAverageMeter.updatePrepareTotalTime();
 //			globalAverageMeter.startStage2Query();
