@@ -54,6 +54,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 	private Object range2lockObject = new Object(); 
 	private Object range3lockObject = new Object();
 
+
+	private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+	private final static DecimalFormat format = new DecimalFormat("#.00");
+
 	private int cachedMinuteTimeStamp = -1;
 	private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedFunctionMap = null;
 
@@ -193,9 +197,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
 	public List<String> checkPair(String caller, String responder, String time) {
 
-    	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	ArrayList<String> result = new ArrayList<String>();
-    	DecimalFormat format = new DecimalFormat("#.00");
     	format.setRoundingMode(RoundingMode.DOWN);
     	String range2Key = new StringBuilder().append(caller).append('-').append(responder).toString();
     	try {
@@ -206,6 +208,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 			if(computedRange2Result.containsKey(computedKey)) {
 				count++;
+				globalAverageMeter.updateStage2Query();
 				return computedRange2Result.get(computedKey);
 			}
 			
