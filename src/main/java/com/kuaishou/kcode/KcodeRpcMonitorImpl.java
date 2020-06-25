@@ -129,11 +129,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 					blockHandlerPool.submit(directMemoryBlockHandler);
 				}
 			}
+			rpcMessageHandlerPool.shutdown();
+			rpcMessageHandlerPool.awaitTermination(10000, TimeUnit.MILLISECONDS);
 			keyList = new int[range2MessageMap.size()];
 			Enumeration<Integer> enumeration = range2MessageMap.keys();
 			int i = 0;
 			while(enumeration.hasMoreElements()) {
 				keyList[i++] = enumeration.nextElement();
+//				System.out.println(keyList[i-1]);
 			}
 			for(i = 0; i < CORE_THREAD_NUM; i++) {
 				range2ComputePool.execute(new Runnable() {
@@ -240,7 +243,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
 
-    	globalAverageMeter.getStatistic();
+//    	globalAverageMeter.getStatistic();
 
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	DecimalFormat decimalFormat = new DecimalFormat("#.00");
