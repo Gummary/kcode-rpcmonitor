@@ -201,8 +201,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     		int minuteTimeStamp = (int)(simpleDateFormat.parse(time).getTime() / 60000);
 			ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap;
 			String computedKey = minuteTimeStamp + range2Key;
-			
-			if(computedRange2Result.contains(computedKey)) {
+
+			if(computedRange2Result.containsKey(computedKey)) {
 				count++;
 				return computedRange2Result.get(computedKey);
 			}
@@ -245,8 +245,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public String checkResponder(String responder, String start, String end) throws Exception {
-    	System.out.println("count"+count);
-    	globalAverageMeter.getStatistic();
+        if(!range2ComputePool.isShutdown()) {
+        	range2ComputePool.shutdown();
+		}
+//    	System.out.println("count"+count);
+//    	globalAverageMeter.getStatistic();
 
     	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     	DecimalFormat decimalFormat = new DecimalFormat("#.00");
