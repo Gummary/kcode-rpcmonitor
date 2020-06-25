@@ -83,7 +83,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
 	public void prepare(String path) {
-//    	globalAverageMeter.startPrepareTotalTime();
+    	globalAverageMeter.startPrepareTotalTime();
     	RandomAccessFile randomAccessFile;
     	boolean needReadNext = true;
 		try {
