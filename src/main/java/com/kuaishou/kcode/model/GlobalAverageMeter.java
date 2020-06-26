@@ -50,6 +50,7 @@ public class GlobalAverageMeter {
             this.val = val;
         }
 
+        
         public double getTotal() {
             return total;
         }
