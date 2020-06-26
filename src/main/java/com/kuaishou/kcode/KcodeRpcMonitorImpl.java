@@ -47,7 +47,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static StringBuilder stringBuilder = new StringBuilder(100);
 
     private static DecimalFormat format;
-    private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
 
     private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
@@ -156,7 +155,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     for (Entry<Integer, SuccessRate> entry :
                             minuteSuccessRate.entrySet()) {
                         int minuteTimeStamp = entry.getKey();
-                        String dateTimeStamp = simpleDateFormat.format(new Date(minuteTimeStamp * 60000L));//DateUtils.minuteTimeStampToDate(minuteTimeStamp);
+                        String dateTimeStamp = DateUtils.minuteTimeStampToDate(minuteTimeStamp);
                         SuccessRate successRate = entry.getValue();
                         double rate = (double) successRate.success.get() / successRate.total.get();
                         currentKeyResults.add(new Range3Result(dateTimeStamp, rate));
@@ -195,7 +194,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                                     resultNnode.computeP99();
                             resultList.add(builder);
                         }
-                        String date = simpleDateFormat.format(new Date(workMinuteStamp * 60000L));//DateUtils.minuteTimeStampToDate(workMinuteStamp);
+                        String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
                         computedRange2Result.put(key + date, resultList);
                     }
                     workIndex = computeIdx.getAndIncrement();
