@@ -2,6 +2,7 @@ package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
+import com.kuaishou.kcode.model.DateUtils;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
 import com.kuaishou.kcode.model.SuccessRate;
@@ -48,7 +49,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private final Object lockObject = new Object();//更新下一个任务时的锁
 
 
-    private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     private static DecimalFormat format;
 
 
@@ -146,7 +146,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         for (int i = 0; i < CORE_THREAD_NUM; i++) {
             range23ComputePool.execute(() -> {
                 int workIndex = computeIdx.getAndIncrement();
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
                 while (workIndex < keyList.length) {
                     String workKey = keyList[workIndex];
@@ -156,7 +155,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     for (Entry<Integer, SuccessRate> entry :
                             minuteSuccessRate.entrySet()) {
                         int minuteTimeStamp = entry.getKey();
-                        String dateTimeStamp = simpleDateFormat.format(new Date(minuteTimeStamp * 60000L));
+                        String dateTimeStamp = DateUtils.minuteTimeStampToDate(minuteTimeStamp);
                         SuccessRate successRate = entry.getValue();
                         double rate = (double) successRate.success.get() / successRate.total.get();
                         currentKeyResults.add(new Range3Result(dateTimeStamp, rate));
@@ -178,7 +177,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         computeIdx.set(0);
         for (int i = 0; i < CORE_THREAD_NUM; i++) {
             range23ComputePool.execute(() -> {
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
                 int workIndex = computeIdx.getAndIncrement();
                 while (workIndex < keyList.length) {
                     int workMinuteStamp = keyList[workIndex];
@@ -196,7 +194,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                                     resultNnode.computeP99();
                             resultList.add(builder);
                         }
-                        String date = simpleDateFormat.format(new Date(workMinuteStamp * 60000L));
+                        String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
                         computedRange2Result.put(key + date, resultList);
                     }
                     workIndex = computeIdx.getAndIncrement();
