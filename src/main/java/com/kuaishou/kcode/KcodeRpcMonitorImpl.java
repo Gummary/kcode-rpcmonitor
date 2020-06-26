@@ -26,7 +26,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     public static final long BLOCK_SIZE = Integer.MAX_VALUE;
     public static final int MESSAGE_BATCH_SIZE = 200 * 1024 * 1024;
-    private static final int LOAD_BLOCK_THRESHOLD = 1000 * 1024 * 1024;
+    private static final int LOAD_BLOCK_THRESHOLD = 800 * 1024 * 1024;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
@@ -228,7 +228,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //            globalAverageMeter.startTimer(CATSTRINGTIMER);
 //        }
 //        globalAverageMeter.updateTimerStart(CATSTRINGTIMER);
-        stringBuilder.setLength(0);;
+        stringBuilder.setLength(0);
         String range2Key = stringBuilder.append(caller).append(responder).append(time).toString();
 //        globalAverageMeter.updateTimer(CATSTRINGTIMER);
 
