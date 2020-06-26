@@ -274,7 +274,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         if (resultDouble - 0.0d >= 1e-4) {
             result = resultString + "%";
         }
-
+        globalAverageMeter.updateTimer(RANGE3TIMER);
         if(range3CalledTime >= 1e4) {
             globalAverageMeter.getStatistic();
         }
