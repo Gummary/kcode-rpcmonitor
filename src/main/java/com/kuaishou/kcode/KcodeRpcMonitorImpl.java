@@ -124,7 +124,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             computeRange2Result();
             computeRange3Result();
 
-            Thread.sleep(20*1000);
+//            Thread.sleep(20*1000);
 
         } catch (InterruptedException | ExecutionException | IOException ignored) {
         } finally {
