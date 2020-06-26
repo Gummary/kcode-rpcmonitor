@@ -89,7 +89,7 @@ public class BuildRPCMessageHandler implements Runnable {
         String calledIP = info[3];
         int isSuccess = info[4].charAt(0) == 't' ? 1 : 0;
         int useTime = Integer.parseInt(info[5]);
-        int secondTimeStamp = (int) TimeUnit.MICROSECONDS.toMinutes(Long.parseLong(info[6]));
+        int secondTimeStamp = (int) TimeUnit.MILLISECONDS.toMinutes(Long.parseLong(info[6]));
 
         submitMessage(mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp);
 

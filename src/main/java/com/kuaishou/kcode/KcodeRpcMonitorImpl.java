@@ -1,7 +1,6 @@
 package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
-import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
 import com.kuaishou.kcode.model.*;
 
 import java.io.IOException;
@@ -10,7 +9,6 @@ import java.math.RoundingMode;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.*;
@@ -44,7 +42,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
     private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
-    private static final ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>(500000);
+    private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(512);
     private static final StringBuilder range2KeyBuilder = new StringBuilder();
 
     // Timer Names
@@ -93,6 +91,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 int mapSize;
                 mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
+
+//                System.out.println("Read buffer " + currentBlock);
 
                 int lastLR = mapSize - 1;
                 while (mappedByteBuffer.get(lastLR) != '\n') {
@@ -143,6 +143,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             computeRange3Result();
 
 
+
         } catch (InterruptedException | IOException ignored) {
         } finally {
             range23ComputePool.shutdown();
@@ -164,17 +165,16 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     String workKey = keyList[workIndex];
 
                     ConcurrentHashMap<Integer, SuccessRate> minuteSuccessRate = range3Result.get(workKey);
-                    ArrayList<Range3Result> currentKeyResults = new ArrayList<>();
+                    Range3Result range3Result = new Range3Result();
                     for (Entry<Integer, SuccessRate> entry :
                             minuteSuccessRate.entrySet()) {
                         int minuteTimeStamp = entry.getKey();
-                        String dateTimeStamp = DateUtils.minuteTimeStampToDate(minuteTimeStamp);
                         SuccessRate successRate = entry.getValue();
                         double rate = (double) successRate.success.get() / successRate.total.get();
-                        currentKeyResults.add(new Range3Result(dateTimeStamp, rate));
+                        range3Result.addTimeStampSuccessate(minuteTimeStamp, rate);
                     }
-                    Collections.sort(currentKeyResults);
-                    computedRange3Result.put(workKey, currentKeyResults);
+                    range3Result.calculatePrefixSum();
+                    computedRange3Result.put(workKey, range3Result);
                     workIndex = computeIdx.getAndIncrement();
                 }
                 latch.countDown();
@@ -191,6 +191,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         for (int i = 0; i < CORE_THREAD_NUM; i++) {
             range23ComputePool.execute(() -> {
                 int workIndex = computeIdx.getAndIncrement();
+                StringBuilder builder = new StringBuilder();
                 while (workIndex < keyList.length) {
                     int workMinuteStamp = keyList[workIndex];
                     ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
@@ -200,12 +201,13 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                         Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
                         ArrayList<String> resultList = new ArrayList<>();
                         while (resultIterator.hasNext()) {
-                            Range2Result resultNnode = resultIterator.next().getValue();
-                            String builder = resultNnode.mainIP + ',' +
-                                    resultNnode.calledIP + ',' +
-                                    resultNnode.computeSuccessRate(format) + ',' +
-                                    resultNnode.computeP99();
-                            resultList.add(builder);
+                            Range2Result resultNode = resultIterator.next().getValue();
+                            builder.setLength(0);
+                            builder.append(resultNode.mainIP).append(",")
+                                    .append(resultNode.calledIP).append(",")
+                                    .append(resultNode.computeSuccessRate(format)).append(",")
+                                    .append(resultNode.computeP99());
+                            resultList.add(builder.toString());
                         }
                         String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
                         computedRange2Result.put(key + date, resultList);
@@ -257,34 +259,23 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //
 //        range3CalledTime+=1;
 //        globalAverageMeter.updateTimerStart(RANGE3TIMER);
-        ArrayList<Range3Result> results = computedRange3Result.get(responder);
-        if (results == null) {
-            return "-1.00%";
-        }
-        double rate = 0.0d;
-        int count = 0;
-        String result = ".00%";
-        for (Range3Result minuteResult :
-                results) {
-            if (minuteResult.getTimeStamp().compareTo(start) >= 0) {
-                if (minuteResult.getTimeStamp().compareTo(end) > 0) {
-                    break;
-                }
-                rate += minuteResult.getSuccessRate();
-                count += 1;
+        Range3Result range3Result = computedRange3Result.get(responder);
+        if(range3Result == null) {
+            return "-1.00";
+        }else {
+            String resultString = ".00%";
+            double resultDouble = range3Result.getResult(DateUtils.DateToMinuteTimeStamp(start), DateUtils.DateToMinuteTimeStamp(end));
+            resultDouble *= 100;
+
+            if(resultDouble - 0.0d > 1e-4) {
+                resultString = format.format(resultDouble) + "%";
             }
-        }
-        double resultDouble = rate * 100 / count;
-        String resultString = format.format(resultDouble);
-        if (resultDouble - 0.0d >= 1e-4) {
-            result = resultString + "%";
+            return resultString;
         }
 //        globalAverageMeter.updateTimer(RANGE3TIMER);
 //        if(range3CalledTime >= 1e4) {
 //            globalAverageMeter.getStatistic();
-//        }
-
-        return result;
+//       }
     }
 
 
