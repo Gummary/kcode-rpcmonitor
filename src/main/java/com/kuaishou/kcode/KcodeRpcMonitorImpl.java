@@ -44,7 +44,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
     MappedByteBuffer curBlock = null;
     private final Object lockObject = new Object();//更新下一个任务时的锁
-
+    private static StringBuilder stringBuilder = new StringBuilder(100);
 
     private static DecimalFormat format;
 
@@ -206,8 +206,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
-
-        String range2Key = caller + "-" + responder + time;
+    	stringBuilder.setLength(0);
+        String range2Key = stringBuilder.append(caller).append("-").append(responder).append(time).toString();
         ArrayList<String> result = computedRange2Result.get(range2Key);
 //        globalAverageMeter.updateStage2Query();
         return result == null ? new ArrayList<>() : result;
