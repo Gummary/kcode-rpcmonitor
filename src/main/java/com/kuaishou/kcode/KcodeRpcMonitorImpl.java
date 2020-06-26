@@ -88,12 +88,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             maxBlockSize = fileSize % BLOCK_SIZE == 0 ? maxBlockSize : maxBlockSize + 1;
 
             String remindBuffer = "";
-            System.out.println(String.format("Total block %d", maxBlockSize));
             // 分块读取文件
             for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
                 int mapSize;
                 mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
-                System.out.println(String.format("Read block %d", currentBlock));
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
 
                 int lastLR = mapSize - 1;
