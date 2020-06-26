@@ -44,9 +44,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
     MappedByteBuffer curBlock = null;
     private final Object lockObject = new Object();//更新下一个任务时的锁
-
+    private static StringBuilder stringBuilder = new StringBuilder(100);
 
     private static DecimalFormat format;
+    private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
 
     private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
@@ -59,7 +60,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     // Timer Names
     private static final String CATSTRINGTIMER = "CatString";
-    private static final String GETHASHCODE = "GetHashcode";
     private static final String GETFROMMAPTIMER = "GetFromMap";
 
     //TEST
@@ -73,7 +73,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         }
 
         globalAverageMeter.createTimer(CATSTRINGTIMER);
-        globalAverageMeter.createTimer(GETHASHCODE);
         globalAverageMeter.createTimer(GETFROMMAPTIMER);
     }
 
@@ -133,7 +132,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             computeRange2Result();
             computeRange3Result();
 
-
         } catch (InterruptedException | ExecutionException | IOException ignored) {
         } finally {
             rpcMessageHandlerPool.shutdown();
@@ -158,7 +156,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     for (Entry<Integer, SuccessRate> entry :
                             minuteSuccessRate.entrySet()) {
                         int minuteTimeStamp = entry.getKey();
-                        String dateTimeStamp = DateUtils.minuteTimeStampToDate(minuteTimeStamp);
+                        String dateTimeStamp = simpleDateFormat.format(new Date(minuteTimeStamp * 60000L));//DateUtils.minuteTimeStampToDate(minuteTimeStamp);
                         SuccessRate successRate = entry.getValue();
                         double rate = (double) successRate.success.get() / successRate.total.get();
                         currentKeyResults.add(new Range3Result(dateTimeStamp, rate));
@@ -197,7 +195,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                                     resultNnode.computeP99();
                             resultList.add(builder);
                         }
-                        String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
+                        String date = simpleDateFormat.format(new Date(workMinuteStamp * 60000L));//DateUtils.minuteTimeStampToDate(workMinuteStamp);
                         computedRange2Result.put(key + date, resultList);
                     }
                     workIndex = computeIdx.getAndIncrement();
@@ -214,22 +212,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             globalAverageMeter.startTimer(CATSTRINGTIMER);
         }
         globalAverageMeter.updateTimerStart(CATSTRINGTIMER);
-        range2KeyBuilder.setLength(0);
-        range2KeyBuilder.append(caller);
-        range2KeyBuilder.append("-");
-        range2KeyBuilder.append(responder);
-        range2KeyBuilder.append(time);
-        String range2Key = range2KeyBuilder.toString();
+        stringBuilder.setLength(0);;
+        String range2Key = stringBuilder.append(caller).append(responder).append(time).toString();
         globalAverageMeter.updateTimer(CATSTRINGTIMER);
 
-        if(!globalAverageMeter.isTimerStarted(GETHASHCODE)) {
-            globalAverageMeter.startTimer(GETHASHCODE);
-        }
-        globalAverageMeter.updateTimerStart(GETHASHCODE);
-        range2Key.hashCode();
-        globalAverageMeter.updateTimer(GETHASHCODE);
-
-        if(globalAverageMeter.isTimerStarted(GETFROMMAPTIMER)) {
+        if(!globalAverageMeter.isTimerStarted(GETFROMMAPTIMER)){
             globalAverageMeter.startTimer(GETFROMMAPTIMER);
         }
         globalAverageMeter.updateTimerStart(GETFROMMAPTIMER);
@@ -237,6 +224,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         globalAverageMeter.updateTimer(GETFROMMAPTIMER);
         return result == null ? new ArrayList<>() : result;
     }
+    
 
 
     @Override
