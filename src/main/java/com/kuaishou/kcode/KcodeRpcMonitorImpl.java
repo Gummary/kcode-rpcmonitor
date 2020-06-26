@@ -206,7 +206,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
-    	stringBuilder.setLength(0);
+    	stringBuilder.delete(0,stringBuilder.length());
         String range2Key = stringBuilder.append(caller).append("-").append(responder).append(time).toString();
         ArrayList<String> result = computedRange2Result.get(range2Key);
 //        globalAverageMeter.updateStage2Query();
