@@ -231,7 +231,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //            globalAverageMeter.startTimer(CATSTRINGTIMER);
 //        }
 //        globalAverageMeter.updateTimerStart(CATSTRINGTIMER);
-        range2KeyBuilder.setLength(0);;
+        range2KeyBuilder.setLength(0);
         String range2Key = range2KeyBuilder.append(caller).append(responder).append(time).toString();
 //        globalAverageMeter.updateTimer(CATSTRINGTIMER);
 
