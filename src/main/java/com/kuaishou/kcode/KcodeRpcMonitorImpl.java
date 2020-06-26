@@ -25,26 +25,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     public static final long BLOCK_SIZE = Integer.MAX_VALUE;
-    public static final int MESSAGE_BATCH_SIZE = 200 * 1024 * 1024;
-    private static final int LOAD_BLOCK_THRESHOLD = 1000 * 1024 * 1024;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
     public RandomAccessFile rpcDataFile;
     public FileChannel rpcDataFileChannel;
-    private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
-    private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
-    private DirectMemoryBlockHandler directMemoryBlockHandler;
-    private BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
-    private final MappedByteBuffer[] blocks = new MappedByteBuffer[2];
+    private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
+    private final BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
     private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
-    private int MaxBlockSize = 0;//总共要读的块数
-    private int curBlockIdx = 0;//当前读到的block数
-    private int curHandledBlockIdx = 0;
-    private int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
-    MappedByteBuffer curBlock = null;
-    private final Object lockObject = new Object();//更新下一个任务时的锁
-    private static StringBuilder stringBuilder = new StringBuilder(100);
 
     private static DecimalFormat format;
 
@@ -72,6 +61,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         range3Result = new ConcurrentHashMap<>();
         for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
             writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result);
+            readyedMessageHandlers.add(writeRPCMessageHandlers[i]);
         }
 
 //        globalAverageMeter.createTimer(CATSTRINGTIMER);
@@ -87,66 +77,79 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         boolean needReadNext = true;
         try {
             randomAccessFile = new RandomAccessFile(path, "r");
-            directMemoryBlockHandler = new DirectMemoryBlockHandler(this, randomAccessFile.getChannel(), 0, BLOCK_SIZE);
-            Future<MappedByteBuffer> future = blockHandlerPool.submit(directMemoryBlockHandler);
             this.rpcDataFile = randomAccessFile;
             this.rpcDataFileChannel = randomAccessFile.getChannel();
             long fileSize = randomAccessFile.length();
 //			System.out.println(String.format("file length:%d", fileSize));
             //下取整
-            MaxBlockSize = (int) (fileSize / BLOCK_SIZE);
+            int maxBlockSize = (int) (fileSize / BLOCK_SIZE);
             //存在剩余 -> block数 + 1
-            MaxBlockSize = fileSize % BLOCK_SIZE == 0 ? MaxBlockSize : MaxBlockSize + 1;
-            //long curTimestamp = System.currentTimeMillis();
-            blocks[0] = future.get();
-            //System.out.println(System.currentTimeMillis() - curTimestamp);//TEST
+            maxBlockSize = fileSize % BLOCK_SIZE == 0 ? maxBlockSize : maxBlockSize + 1;
 
-            curBlock = blocks[0];//当前MessageHandler处理的块的位置
-            for (BuildRPCMessageHandler rpcMessageHandler : writeRPCMessageHandlers) {
-                //TODO 是否需要判断当前block可读长度 > 这个Block要工作的长度？
-                getCurrentIdxAndUpdateIt(rpcMessageHandler);
+            String remindBuffer = "";
+            System.out.println(String.format("Total block %d", maxBlockSize));
+            // 分块读取文件
+            for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
+                int mapSize;
+                mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
+                System.out.println(String.format("Read block %d", currentBlock));
+                MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
 
-            }
-
-            while (curBlockIdx < MaxBlockSize) {
-                BuildRPCMessageHandler writeRPCMessageHandler = readyedMessageHandlers.take();
-                if (writeRPCMessageHandler.isBeyondTwoBlock()) {
-                    curBlockIdx++;
-                    needReadNext = true;
+                int lastLR = mapSize - 1;
+                while (mappedByteBuffer.get(lastLR) != '\n') {
+                    lastLR -= 1;
                 }
-                rpcMessageHandlerPool.execute(writeRPCMessageHandler);
-                //异步任务：当目前block处理字节数大于阈值时，读取下一个block
-                //System.out.println(writeRPCMessageHandler.printInfo());
-                if (writeRPCMessageHandler.getStartIndex() > LOAD_BLOCK_THRESHOLD && needReadNext
-                        && !writeRPCMessageHandler.isBeyondTwoBlock()) { //需要加载下一个block的数据
-                    needReadNext = false;
-//					System.out.println(String.format("current ready to read blockIdx:%d, total block:%d ", curBlockIdx + 1, MaxBlockSize));
-                    long startPosition = (curBlockIdx + 1L) * BLOCK_SIZE;
-                    if (startPosition >= fileSize) {
-                        continue;
+
+
+                // 每个线程读取等量的数据
+                int readSize = mapSize / CORE_THREAD_NUM;
+                int[] readerStartIndex = new int[CORE_THREAD_NUM];
+                int[] endIndex = new int[CORE_THREAD_NUM];
+
+                for(int i = 0;i<CORE_THREAD_NUM;i++) {
+                    endIndex[i]  = readerStartIndex[i] + readSize;
+                    // 为除了最后一个线程的线程找到有边界
+                    if(i < CORE_THREAD_NUM - 1) {
+                        while (mappedByteBuffer.get(endIndex[i]) != '\n') {
+                            endIndex[i]--;
+                        }
+                        readerStartIndex[i+1] = endIndex[i] + 1;
+                    } else { //最后一个线程的有边界是整个block的右边界
+                        endIndex[i] = lastLR;
                     }
-                    directMemoryBlockHandler.setStartPosition(startPosition);
-                    directMemoryBlockHandler.setLength(Math.min(fileSize - startPosition, BLOCK_SIZE));
-                    blockHandlerPool.submit(directMemoryBlockHandler);
                 }
+                for (int i = 0; i < CORE_THREAD_NUM; i++) {
+                    BuildRPCMessageHandler rpcMessageHandler = readyedMessageHandlers.take();
+                    // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
+                    if (i == 0) {
+                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, readerStartIndex[i], endIndex[i]);
+                    } else { //其他线程都是完整的数据
+                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", readerStartIndex[i], endIndex[i]);
+                    }
+                    rpcMessageHandlerPool.execute(rpcMessageHandler);
+                }
+                StringBuilder builder = new StringBuilder();
+                lastLR += 1;
+                while (lastLR < mapSize) {
+                    builder.append((char) mappedByteBuffer.get(lastLR));
+                    lastLR++;
+                }
+                remindBuffer = builder.toString();
             }
+
             rpcMessageHandlerPool.shutdown();
-            rpcMessageHandlerPool.awaitTermination(20000, TimeUnit.MILLISECONDS);
+            rpcMessageHandlerPool.awaitTermination(10, TimeUnit.SECONDS);
 
             computeRange2Result();
             computeRange3Result();
 
-        } catch (InterruptedException | ExecutionException | IOException ignored) {
+
+        } catch (InterruptedException | IOException ignored) {
         } finally {
-        	if(!rpcMessageHandlerPool.isShutdown()) {
-                rpcMessageHandlerPool.shutdownNow();
-            }
-        	if(!blockHandlerPool.isShutdown()) {
-                blockHandlerPool.shutdownNow();
-            }
-            if(!range23ComputePool.isShutdown()) {
-                range23ComputePool.shutdownNow();
-            }
+            range23ComputePool.shutdown();
+
+//			globalAverageMeter.updatePrepareTotalTime();
+//			globalAverageMeter.startStage2Query();
         }
     }
 
@@ -228,8 +231,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //            globalAverageMeter.startTimer(CATSTRINGTIMER);
 //        }
 //        globalAverageMeter.updateTimerStart(CATSTRINGTIMER);
-        stringBuilder.setLength(0);;
-        String range2Key = stringBuilder.append(caller).append(responder).append(time).toString();
+        range2KeyBuilder.setLength(0);;
+        String range2Key = range2KeyBuilder.append(caller).append(responder).append(time).toString();
 //        globalAverageMeter.updateTimer(CATSTRINGTIMER);
 
 //        if(!globalAverageMeter.isTimerStarted(GETFROMMAPTIMER)){
@@ -294,66 +297,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
      * @param writeRPCMessageHandler
      */
     public void getCurrentIdxAndUpdateIt(BuildRPCMessageHandler writeRPCMessageHandler) {
-        synchronized (lockObject) {
-            boolean isBeyondTwoBatch = false;
-            writeRPCMessageHandler.setTargetBuffer(curBlock);
-            writeRPCMessageHandler.setStartIndex(messageStartIdx);
-            if (curHandledBlockIdx == MaxBlockSize - 1 && messageStartIdx >= curBlock.capacity()) {//特例1：线程没有必要继续处理数据了
-//				System.out.println("Done!");
-                return;
-            }
-            int nextStartIdx = messageStartIdx + MESSAGE_BATCH_SIZE;
-            if (nextStartIdx >= curBlock.capacity() && curHandledBlockIdx == MaxBlockSize - 1) {//特例2：该batch是最后一个block数据的最后一块
-                writeRPCMessageHandler.setiSBeyondTwoBlock(true);//置位，目的是让prepare中能跳出循环
-                writeRPCMessageHandler.setAppendBuffer(null);
-                writeRPCMessageHandler.setLength(curBlock.capacity() - messageStartIdx);
-                readyedMessageHandlers.add(writeRPCMessageHandler);
-                messageStartIdx = curBlock.capacity();
-                return;
-            }
-
-            if (nextStartIdx >= BLOCK_SIZE) {
-                isBeyondTwoBatch = true;
-                nextStartIdx %= BLOCK_SIZE;
-
-                curBlock = blocks[1];
-                blocks[0] = blocks[1];
-                blocks[1] = null;
-            }
-            while (curBlock.get(nextStartIdx) != (byte) '\n') {
-                nextStartIdx++;
-                if (nextStartIdx >= BLOCK_SIZE) {
-                    isBeyondTwoBatch = true;
-                    nextStartIdx = 0;
-                    curBlock = blocks[1];
-                    blocks[0] = blocks[1];
-                    blocks[1] = null;
-
-                }
-            }
-            // next 回车位置，自增后为下一个batch的开始
-            nextStartIdx++;
-            if (isBeyondTwoBatch) {
-                writeRPCMessageHandler.setiSBeyondTwoBlock(true);
-                writeRPCMessageHandler.setAppendBuffer(curBlock);
-                writeRPCMessageHandler.setLength(nextStartIdx + (int) BLOCK_SIZE - messageStartIdx);
-                curHandledBlockIdx++;
-            } else {
-                writeRPCMessageHandler.setiSBeyondTwoBlock(false);
-                writeRPCMessageHandler.setAppendBuffer(null);//目的是尽快让GC回收区域
-                writeRPCMessageHandler.setLength(nextStartIdx - messageStartIdx);
-            }
-            messageStartIdx = nextStartIdx;
-            try {
-                readyedMessageHandlers.put(writeRPCMessageHandler);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public void setNextBlock(MappedByteBuffer block) {
-        blocks[1] = block;
+        readyedMessageHandlers.add(writeRPCMessageHandler);
     }
 
     @Deprecated
