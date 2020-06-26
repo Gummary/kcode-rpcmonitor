@@ -49,12 +49,18 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static DecimalFormat format;
 
 
-//    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     //利用线程池优化2,3阶段
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
     private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
     private static final ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>(500000);
+    private static final StringBuilder range2KeyBuilder = new StringBuilder();
+
+    // Timer Names
+    private static final String CATSTRINGTIMER = "CatString";
+    private static final String GETHASHCODE = "GetHashcode";
+    private static final String GETFROMMAPTIMER = "GetFromMap";
 
     //TEST
     // 不要修改访问级别
@@ -65,12 +71,15 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
             writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result);
         }
+
+        globalAverageMeter.createTimer(CATSTRINGTIMER);
+        globalAverageMeter.createTimer(GETHASHCODE);
+        globalAverageMeter.createTimer(GETFROMMAPTIMER);
     }
 
 
     @Override
     public void prepare(String path) {
-//    	globalAverageMeter.startPrepareTotalTime();
         RandomAccessFile randomAccessFile;
         boolean needReadNext = true;
         try {
@@ -124,17 +133,12 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             computeRange2Result();
             computeRange3Result();
 
-            Thread.sleep(20*1000);
 
         } catch (InterruptedException | ExecutionException | IOException ignored) {
         } finally {
             rpcMessageHandlerPool.shutdown();
             blockHandlerPool.shutdown();
             range23ComputePool.shutdown();
-
-
-//			globalAverageMeter.updatePrepareTotalTime();
-//			globalAverageMeter.startStage2Query();
         }
     }
 
@@ -206,17 +210,38 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
+        if(!globalAverageMeter.isTimerStarted(CATSTRINGTIMER)) {
+            globalAverageMeter.startTimer(CATSTRINGTIMER);
+        }
+        globalAverageMeter.updateTimerStart(CATSTRINGTIMER);
+        range2KeyBuilder.setLength(0);
+        range2KeyBuilder.append(caller);
+        range2KeyBuilder.append("-");
+        range2KeyBuilder.append(responder);
+        range2KeyBuilder.append(time);
+        String range2Key = range2KeyBuilder.toString();
+        globalAverageMeter.updateTimer(CATSTRINGTIMER);
 
-        String range2Key = caller + "-" + responder + time;
+        if(!globalAverageMeter.isTimerStarted(GETHASHCODE)) {
+            globalAverageMeter.startTimer(GETHASHCODE);
+        }
+        globalAverageMeter.updateTimerStart(GETHASHCODE);
+        range2Key.hashCode();
+        globalAverageMeter.updateTimer(GETHASHCODE);
+
+        if(globalAverageMeter.isTimerStarted(GETFROMMAPTIMER)) {
+            globalAverageMeter.startTimer(GETFROMMAPTIMER);
+        }
+        globalAverageMeter.updateTimerStart(GETFROMMAPTIMER);
         ArrayList<String> result = computedRange2Result.get(range2Key);
-//        globalAverageMeter.updateStage2Query();
+        globalAverageMeter.updateTimer(GETFROMMAPTIMER);
         return result == null ? new ArrayList<>() : result;
     }
 
 
     @Override
     public String checkResponder(String responder, String start, String end) throws Exception {
-//        globalAverageMeter.getStatistic();
+        globalAverageMeter.getStatistic();
 
         ArrayList<Range3Result> results = computedRange3Result.get(responder);
         if (results == null) {
