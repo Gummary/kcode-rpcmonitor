@@ -24,9 +24,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
-    public static final long BLOCK_SIZE = 500 * 1024 * 1024;
-    public static final int MESSAGE_BATCH_SIZE = 50 * 1024 * 1024;
-    private static final int LOAD_BLOCK_THRESHOLD = 400 * 1024 * 1024;
+    public static final long BLOCK_SIZE = Integer.MAX_VALUE;
+    public static final int MESSAGE_BATCH_SIZE = 200 * 1024 * 1024;
+    private static final int LOAD_BLOCK_THRESHOLD = 1000 * 1024 * 1024;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
@@ -49,7 +49,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static DecimalFormat format;
 
 
-    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+//    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     //利用线程池优化2,3阶段
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
@@ -74,10 +74,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result);
         }
 
-        globalAverageMeter.createTimer(CATSTRINGTIMER);
-        globalAverageMeter.createTimer(GETFROMMAPTIMER);
-        globalAverageMeter.createTimer(RANGE2TIMER);
-        globalAverageMeter.createTimer(RANGE3TIMER);
+//        globalAverageMeter.createTimer(CATSTRINGTIMER);
+//        globalAverageMeter.createTimer(GETFROMMAPTIMER);
+//        globalAverageMeter.createTimer(RANGE2TIMER);
+//        globalAverageMeter.createTimer(RANGE3TIMER);
     }
 
 
@@ -138,12 +138,15 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         } catch (InterruptedException | ExecutionException | IOException ignored) {
         } finally {
-        	if(!rpcMessageHandlerPool.isShutdown())
-        		rpcMessageHandlerPool.shutdownNow();
-        	if(!blockHandlerPool.isShutdown())
-        		blockHandlerPool.shutdownNow();
-            if(!range23ComputePool.isShutdown())
-            	range23ComputePool.shutdownNow();
+        	if(!rpcMessageHandlerPool.isShutdown()) {
+                rpcMessageHandlerPool.shutdownNow();
+            }
+        	if(!blockHandlerPool.isShutdown()) {
+                blockHandlerPool.shutdownNow();
+            }
+            if(!range23ComputePool.isShutdown()) {
+                range23ComputePool.shutdownNow();
+            }
         }
     }
 
@@ -216,27 +219,27 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
 
-        if(!globalAverageMeter.isTimerStarted(RANGE2TIMER)){
-            globalAverageMeter.startTimer(RANGE2TIMER);
-        }
-        globalAverageMeter.updateTimerStart(RANGE2TIMER);
-
-        if(!globalAverageMeter.isTimerStarted(CATSTRINGTIMER)) {
-            globalAverageMeter.startTimer(CATSTRINGTIMER);
-        }
-        globalAverageMeter.updateTimerStart(CATSTRINGTIMER);
+//        if(!globalAverageMeter.isTimerStarted(RANGE2TIMER)){
+//            globalAverageMeter.startTimer(RANGE2TIMER);
+//        }
+//        globalAverageMeter.updateTimerStart(RANGE2TIMER);
+//
+//        if(!globalAverageMeter.isTimerStarted(CATSTRINGTIMER)) {
+//            globalAverageMeter.startTimer(CATSTRINGTIMER);
+//        }
+//        globalAverageMeter.updateTimerStart(CATSTRINGTIMER);
         stringBuilder.setLength(0);;
         String range2Key = stringBuilder.append(caller).append(responder).append(time).toString();
-        globalAverageMeter.updateTimer(CATSTRINGTIMER);
+//        globalAverageMeter.updateTimer(CATSTRINGTIMER);
 
-        if(!globalAverageMeter.isTimerStarted(GETFROMMAPTIMER)){
-            globalAverageMeter.startTimer(GETFROMMAPTIMER);
-        }
-        globalAverageMeter.updateTimerStart(GETFROMMAPTIMER);
+//        if(!globalAverageMeter.isTimerStarted(GETFROMMAPTIMER)){
+//            globalAverageMeter.startTimer(GETFROMMAPTIMER);
+//        }
+//        globalAverageMeter.updateTimerStart(GETFROMMAPTIMER);
         ArrayList<String> result = computedRange2Result.get(range2Key);
-        globalAverageMeter.updateTimer(GETFROMMAPTIMER);
-
-        globalAverageMeter.updateTimer(RANGE2TIMER);
+//        globalAverageMeter.updateTimer(GETFROMMAPTIMER);
+//
+//        globalAverageMeter.updateTimer(RANGE2TIMER);
         return result == null ? new ArrayList<>() : result;
     }
     
@@ -245,13 +248,13 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
     public String checkResponder(String responder, String start, String end) throws Exception {
 
-        if(!globalAverageMeter.isTimerStarted(RANGE3TIMER)) {
-            globalAverageMeter.startTimer(RANGE3TIMER);
-            range3CalledTime = 0;
-        }
-
-        range3CalledTime+=1;
-        globalAverageMeter.updateTimerStart(RANGE3TIMER);
+//        if(!globalAverageMeter.isTimerStarted(RANGE3TIMER)) {
+//            globalAverageMeter.startTimer(RANGE3TIMER);
+//            range3CalledTime = 0;
+//        }
+//
+//        range3CalledTime+=1;
+//        globalAverageMeter.updateTimerStart(RANGE3TIMER);
         ArrayList<Range3Result> results = computedRange3Result.get(responder);
         if (results == null) {
             return "-1.00%";
@@ -274,10 +277,10 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         if (resultDouble - 0.0d >= 1e-4) {
             result = resultString + "%";
         }
-        globalAverageMeter.updateTimer(RANGE3TIMER);
-        if(range3CalledTime >= 1e4) {
-            globalAverageMeter.getStatistic();
-        }
+//        globalAverageMeter.updateTimer(RANGE3TIMER);
+//        if(range3CalledTime >= 1e4) {
+//            globalAverageMeter.getStatistic();
+//        }
 
         return result;
     }
