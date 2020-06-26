@@ -47,7 +47,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static StringBuilder stringBuilder = new StringBuilder(100);
 
     private static DecimalFormat format;
-    private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
 
 //    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
@@ -155,7 +154,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     for (Entry<Integer, SuccessRate> entry :
                             minuteSuccessRate.entrySet()) {
                         int minuteTimeStamp = entry.getKey();
-                        String dateTimeStamp = simpleDateFormat.format(new Date(minuteTimeStamp * 60000L));//DateUtils.minuteTimeStampToDate(minuteTimeStamp);
+                        String dateTimeStamp = DateUtils.minuteTimeStampToDate(minuteTimeStamp);
                         SuccessRate successRate = entry.getValue();
                         double rate = (double) successRate.success.get() / successRate.total.get();
                         currentKeyResults.add(new Range3Result(dateTimeStamp, rate));
@@ -194,7 +193,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                                     resultNnode.computeP99();
                             resultList.add(builder);
                         }
-                        String date = simpleDateFormat.format(new Date(workMinuteStamp * 60000L));//DateUtils.minuteTimeStampToDate(workMinuteStamp);
+                        String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
                         computedRange2Result.put(key + date, resultList);
                     }
                     workIndex = computeIdx.getAndIncrement();
@@ -207,7 +206,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
-    	stringBuilder.setLength(0);;
+    	stringBuilder.setLength(0);
         String range2Key = stringBuilder.append(caller).append(responder).append(time).toString();
         ArrayList<String> result = computedRange2Result.get(range2Key);
 //        globalAverageMeter.updateStage2Query();
