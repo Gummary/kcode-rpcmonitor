@@ -26,8 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
-    public static final long BLOCK_SIZE = 900 * 1024 * 1024;
-    private static final int LOAD_BLOCK_THRESHOLD = 400 * 1024 * 1024;
+    public static final long BLOCK_SIZE = Integer.MAX_VALUE;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
@@ -36,11 +35,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
     private final BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
-    private final MappedByteBuffer[] blocks = new MappedByteBuffer[2];
     private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
-    private final int messageStartIdx = 0;//下一个MessageHandler从哪个位置开始处理
-    MappedByteBuffer curBlock = null;
-    private final Object lockObject = new Object();//更新下一个任务时的锁
 
 
     private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
@@ -97,7 +92,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     lastLR -= 1;
                 }
 
-//                int readerStartIndex = 0;
 
                 // 每个线程读取等量的数据
                 int readSize = mapSize / CORE_THREAD_NUM;
@@ -267,10 +261,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
      */
     public void getCurrentIdxAndUpdateIt(BuildRPCMessageHandler writeRPCMessageHandler) {
         readyedMessageHandlers.add(writeRPCMessageHandler);
-    }
-
-    public void setNextBlock(MappedByteBuffer block) {
-        blocks[1] = block;
     }
 
     @Deprecated
