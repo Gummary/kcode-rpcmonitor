@@ -38,6 +38,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static DecimalFormat format;
 
 
+
 //    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     //利用线程池优化2,3阶段
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
