@@ -2,10 +2,7 @@ package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
-import com.kuaishou.kcode.model.DateUtils;
-import com.kuaishou.kcode.model.Range2Result;
-import com.kuaishou.kcode.model.Range3Result;
-import com.kuaishou.kcode.model.SuccessRate;
+import com.kuaishou.kcode.model.*;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -52,7 +49,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static DecimalFormat format;
 
 
-    //	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     //利用线程池优化2,3阶段
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
@@ -73,7 +70,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public void prepare(String path) {
-//    	globalAverageMeter.startPrepareTotalTime();
+    	globalAverageMeter.startPrepareTotalTime();
         RandomAccessFile randomAccessFile;
         boolean needReadNext = true;
         try {
@@ -134,8 +131,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             blockHandlerPool.shutdown();
             range23ComputePool.shutdown();
 
-//			globalAverageMeter.updatePrepareTotalTime();
-//			globalAverageMeter.startStage2Query();
+			globalAverageMeter.updatePrepareTotalTime();
+			globalAverageMeter.startStage2Query();
         }
     }
 
@@ -210,26 +207,26 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         String range2Key = caller + "-" + responder + time;
         ArrayList<String> result = computedRange2Result.get(range2Key);
-//        globalAverageMeter.updateStage2Query();
+        globalAverageMeter.updateStage2Query();
         return result == null ? new ArrayList<>() : result;
     }
 
 
     @Override
     public String checkResponder(String responder, String start, String end) throws Exception {
-//        globalAverageMeter.getStatistic("Count: "+count);
+        globalAverageMeter.getStatistic();
 
         ArrayList<Range3Result> results = computedRange3Result.get(responder);
-        if(results == null) {
+        if (results == null) {
             return "-1.00%";
         }
         double rate = 0.0d;
         int count = 0;
         String result = ".00%";
-        for (Range3Result minuteResult:
+        for (Range3Result minuteResult :
                 results) {
-            if (minuteResult.getTimeStamp().compareTo(start)>=0) {
-                if(minuteResult.getTimeStamp().compareTo(end) > 0) {
+            if (minuteResult.getTimeStamp().compareTo(start) >= 0) {
+                if (minuteResult.getTimeStamp().compareTo(end) > 0) {
                     break;
                 }
                 rate += minuteResult.getSuccessRate();
