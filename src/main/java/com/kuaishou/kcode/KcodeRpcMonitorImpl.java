@@ -60,6 +60,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     // Timer Names
     private static final String CATSTRINGTIMER = "CatString";
     private static final String GETFROMMAPTIMER = "GetFromMap";
+    private static final String RANGE2TIMER = "RANGE2";
 
     //TEST
     // 不要修改访问级别
@@ -207,6 +208,12 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
+
+        if(!globalAverageMeter.isTimerStarted(RANGE2TIMER)){
+            globalAverageMeter.startTimer(RANGE2TIMER);
+        }
+        globalAverageMeter.updateTimerStart(RANGE2TIMER);
+
         if(!globalAverageMeter.isTimerStarted(CATSTRINGTIMER)) {
             globalAverageMeter.startTimer(CATSTRINGTIMER);
         }
@@ -221,6 +228,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         globalAverageMeter.updateTimerStart(GETFROMMAPTIMER);
         ArrayList<String> result = computedRange2Result.get(range2Key);
         globalAverageMeter.updateTimer(GETFROMMAPTIMER);
+
+        globalAverageMeter.updateTimer(RANGE2TIMER);
         return result == null ? new ArrayList<>() : result;
     }
     
