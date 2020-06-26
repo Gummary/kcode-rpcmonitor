@@ -61,6 +61,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final String CATSTRINGTIMER = "CatString";
     private static final String GETFROMMAPTIMER = "GetFromMap";
     private static final String RANGE2TIMER = "RANGE2";
+    private static final String RANGE3TIMER = "RANGE3";
+    private static int range3CalledTime = 0;
 
     //TEST
     // 不要修改访问级别
@@ -75,6 +77,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         globalAverageMeter.createTimer(CATSTRINGTIMER);
         globalAverageMeter.createTimer(GETFROMMAPTIMER);
         globalAverageMeter.createTimer(RANGE2TIMER);
+        globalAverageMeter.createTimer(RANGE3TIMER);
     }
 
 
@@ -238,8 +241,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public String checkResponder(String responder, String start, String end) throws Exception {
-        globalAverageMeter.getStatistic();
 
+        if(!globalAverageMeter.isTimerStarted(RANGE3TIMER)) {
+            globalAverageMeter.startTimer(RANGE3TIMER);
+            range3CalledTime = 0;
+        }
+
+        range3CalledTime+=1;
+        globalAverageMeter.updateTimerStart(RANGE3TIMER);
         ArrayList<Range3Result> results = computedRange3Result.get(responder);
         if (results == null) {
             return "-1.00%";
@@ -262,6 +271,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         if (resultDouble - 0.0d >= 1e-4) {
             result = resultString + "%";
         }
+
+        if(range3CalledTime >= 1e4) {
+            globalAverageMeter.getStatistic();
+        }
+
         return result;
     }
 
