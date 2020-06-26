@@ -138,9 +138,12 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         } catch (InterruptedException | ExecutionException | IOException ignored) {
         } finally {
-            rpcMessageHandlerPool.shutdown();
-            blockHandlerPool.shutdown();
-            range23ComputePool.shutdown();
+        	if(!rpcMessageHandlerPool.isShutdown())
+        		rpcMessageHandlerPool.shutdownNow();
+        	if(!blockHandlerPool.isShutdown())
+        		blockHandlerPool.shutdownNow();
+            if(!range23ComputePool.isShutdown())
+            	range23ComputePool.shutdownNow();
         }
     }
 
