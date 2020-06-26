@@ -74,6 +74,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         globalAverageMeter.createTimer(CATSTRINGTIMER);
         globalAverageMeter.createTimer(GETFROMMAPTIMER);
+        globalAverageMeter.createTimer(RANGE2TIMER);
     }
 
 
