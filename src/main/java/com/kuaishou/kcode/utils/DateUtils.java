@@ -1,4 +1,4 @@
-package com.kuaishou.kcode.model;
+package com.kuaishou.kcode.utils;
 
 public class DateUtils {
     private final static short[][] date_time_days =

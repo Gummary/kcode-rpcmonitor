@@ -161,7 +161,7 @@ public class BuildRPCMessageHandler implements Runnable {
     }
 
     public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
-        System.out.println(String.format("%d, %d", startIndex, endIndex));
+//        System.out.println(String.format("%d, %d", startIndex, endIndex));
         this.targetBuffer = targetBuffer;
         this.remindBuffer = remindBuffer;
         this.startIndex = startIndex;

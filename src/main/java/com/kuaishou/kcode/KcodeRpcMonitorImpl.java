@@ -2,6 +2,7 @@ package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.model.*;
+import com.kuaishou.kcode.utils.DateUtils;
 import com.kuaishou.kcode.utils.GlobalAverageMeter;
 
 import java.io.IOException;
@@ -24,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     public static final long BLOCK_SIZE = Integer.MAX_VALUE;
+    private static final int TOTAL_THREAD_NUM = 8;
     private static final int CORE_THREAD_NUM = 7;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     public RandomAccessFile rpcDataFile;
@@ -37,7 +39,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
     //利用线程池优化2,3阶段
-    private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
+    private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(TOTAL_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
 //    private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
 //    private static final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ArrayList<String>>> computedRange2Result = new ConcurrentHashMap<>();
@@ -148,7 +150,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
         }
 //        String prepareStatistic = globalAverageMeter.getStatisticString();
-        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
+//        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
 //        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
 //        System.out.println(String.format("%s %s", prepareStatistic, thread0Statistic));
     }
@@ -157,7 +159,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         CountDownLatch latch = new CountDownLatch(CORE_THREAD_NUM);
         String[] keyList = range3Result.keySet().toArray(new String[0]);
         computeIdx.set(0);
-        for (int i = 0; i < CORE_THREAD_NUM; i++) {
+        for (int i = 0; i < TOTAL_THREAD_NUM; i++) {
             range23ComputePool.execute(() -> {
                 int workIndex = computeIdx.getAndIncrement();
 
@@ -190,7 +192,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         range2MintimeStamp = Collections.min(range2MessageMap.keySet());
         range2MaxTimeStamp = Collections.max(range2MessageMap.keySet());
         computeIdx.set(0);
-        for (int i = 0; i < CORE_THREAD_NUM; i++) {
+        for (int i = 0; i < TOTAL_THREAD_NUM; i++) {
             range23ComputePool.execute(() -> {
                 int workIndex = computeIdx.getAndIncrement();
                 StringBuilder builder = new StringBuilder();
