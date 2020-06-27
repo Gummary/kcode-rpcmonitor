@@ -257,7 +257,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         range3CalledTime++;
         globalAverageMeter.updateTimer(RANGE3TIMER);
-        if(range3CalledTime > 3e4) {
+        if(range3CalledTime > 5e4) {
             globalAverageMeter.getStatistic();
         }
 
