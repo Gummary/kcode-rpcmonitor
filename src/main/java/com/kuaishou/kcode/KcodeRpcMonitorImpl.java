@@ -223,14 +223,15 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         if (!globalAverageMeter.isTimerStarted(RANGE2TIMER)) {
             globalAverageMeter.startTimer(RANGE2TIMER);
+            globalAverageMeter.updateTimerStart(RANGE2TIMER);
         }
-        globalAverageMeter.updateTimerStart(RANGE2TIMER);
+        
 
         range2KeyBuilder.setLength(0);
         String range2Key = range2KeyBuilder.append(caller).append(responder).append(time).toString();
         ArrayList<String> result = computedRange2Result.get(range2Key);
 
-        globalAverageMeter.updateTimer(RANGE2TIMER);
+        
         return result == null ? new ArrayList<>() : result;
     }
 
@@ -239,6 +240,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public String checkResponder(String responder, String start, String end) throws Exception {
 
         if (!globalAverageMeter.isTimerStarted(RANGE3TIMER)) {
+        	globalAverageMeter.updateTimer(RANGE2TIMER);
             globalAverageMeter.startTimer(RANGE3TIMER);
             range3CalledTime = 0;
         }
@@ -256,8 +258,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         }
 
         range3CalledTime++;
-        globalAverageMeter.updateTimer(RANGE3TIMER);
+        
         if(range3CalledTime >= 3e5) {
+        	globalAverageMeter.updateTimer(RANGE3TIMER);
             globalAverageMeter.getStatistic();
         }
 
