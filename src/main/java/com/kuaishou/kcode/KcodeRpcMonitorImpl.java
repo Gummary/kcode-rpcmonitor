@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     public static final long BLOCK_SIZE = Integer.MAX_VALUE;
-    private static final int READ_THREAD_NUM = 6;
+    private static final int READ_THREAD_NUM = 8;
     private static final int MERGE_THREAD_NUM = 2;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(READ_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     public RandomAccessFile rpcDataFile;
@@ -54,7 +54,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final StringBuilder range2KeyBuilder = new StringBuilder();
 
     // Timer Setting
-    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+//    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     private static final String PREPARETIMER = "PREPARE";
     private static final String RANGE2TIMER = "RANGE2";
     private static final String RANGE3TIMER = "RANGE3";
@@ -78,7 +78,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             readyedMessageHandlers.add(writeRPCMessageHandlers[i]);
         }
 
-        globalAverageMeter.createTimer(PREPARETIMER);
+//        globalAverageMeter.createTimer(PREPARETIMER);
 //        globalAverageMeter.createTimer(RANGE2TIMER);
 //        globalAverageMeter.createTimer(RANGE3TIMER);
     }
@@ -86,7 +86,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public void prepare(String path) throws Exception {
-        globalAverageMeter.startTimer(PREPARETIMER);
+//        globalAverageMeter.startTimer(PREPARETIMER);
         for (int i = 0; i < MERGE_THREAD_NUM; i++) {
             mergeThread[i].start();
         }
@@ -164,7 +164,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         } finally {
             rpcMessageHandlerPool.shutdown();
             range23ComputePool.shutdown();
-            globalAverageMeter.updateTimer(PREPARETIMER);
+//            globalAverageMeter.updateTimer(PREPARETIMER);
             if (randomAccessFile != null) {
             	try {
 					randomAccessFile.close();
@@ -173,9 +173,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				}
 			}
         }
-        String prepareStatistic = globalAverageMeter.getStatisticString();
-        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
-        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
+//        String prepareStatistic = globalAverageMeter.getStatisticString();
+//        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
+//        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
 //        System.out.println(String.format("%s %s", prepareStatistic, thread0Statistic));
     }
 
