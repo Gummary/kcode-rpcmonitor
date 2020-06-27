@@ -262,7 +262,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         
         if(range3CalledTime >= 3e5) {
         	globalAverageMeter.updateTimer(RANGE3TIMER);
-            globalAverageMeter.getStatistic();
+            globalAverageMeter.getStatistic(String.format("ComputedRange2Result %d", computedRange2Result.size()));
         }
 
         return resultString;
