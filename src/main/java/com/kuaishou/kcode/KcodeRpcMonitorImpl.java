@@ -28,7 +28,13 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     public RandomAccessFile rpcDataFile;
     public FileChannel rpcDataFileChannel;
-    private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<>(32);
+    //    private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<>(32);
+    private ConcurrentHashMap<Integer, // timestamp
+            ConcurrentHashMap<String, // mainService
+                    ConcurrentHashMap<String, // calledService
+                            ConcurrentHashMap<String, // mainIP
+                                    ConcurrentHashMap<String, // calledIP
+                                            Range2Result>>>>> range2MessageMap = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
     private final BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
     private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
@@ -39,9 +45,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     //利用线程池优化2,3阶段
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
-//    private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
+    //    private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
 //    private static final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ArrayList<String>>> computedRange2Result = new ConcurrentHashMap<>();
-    private static HashMap<String, ArrayList<String>>[] computedRange2Result=null;
+    private static HashMap<String, HashMap<String, ArrayList<String>>>[] computedRange2Result = null;
     private static int range2MintimeStamp;
     private static int range2MaxTimeStamp;
     private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(512);
@@ -54,7 +60,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final String RANGE3TIMER = "RANGE3";
     private static int range3CalledTime = 0;
 
-    
+
     //TEST
     // 不要修改访问级别
     public KcodeRpcMonitorImpl() {
@@ -108,7 +114,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
                     if (i == 0) {
                         rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, startIndex, endIndex);
-                    } else if(i == CORE_THREAD_NUM-1){ //其他线程都是完整的数据
+                    } else if (i == CORE_THREAD_NUM - 1) { //其他线程都是完整的数据
                         rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, lastLR);
                     } else {
                         rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, endIndex);
@@ -140,12 +146,12 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             range23ComputePool.shutdown();
 //            globalAverageMeter.updateTimer(PREPARETIMER);
             if (randomAccessFile != null) {
-            	try {
-					randomAccessFile.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
+                try {
+                    randomAccessFile.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 //        String prepareStatistic = globalAverageMeter.getStatisticString();
 //        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
@@ -197,26 +203,47 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 StringBuilder builder = new StringBuilder();
                 while (workIndex < keyList.length) {
                     int workMinuteStamp = keyList[workIndex];
-                    ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
-                    int index= workMinuteStamp - range2MintimeStamp;
+                    ConcurrentHashMap<String,
+                            ConcurrentHashMap<String,
+                                    ConcurrentHashMap<String,
+                                            ConcurrentHashMap<String, Range2Result>>>> functionMap = range2MessageMap.get(workMinuteStamp);
+                    int index = workMinuteStamp - range2MintimeStamp;
                     computedRange2Result[index] = new HashMap<>();
-                    HashMap<String, ArrayList<String>> timestampMap = computedRange2Result[index];
-                    for (Entry<String, ConcurrentHashMap<String, Range2Result>> node : functionMap.entrySet()) {
-                        String key = node.getKey();
-                        ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
-                        Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
-                        ArrayList<String> resultList = new ArrayList<>();
-                        while (resultIterator.hasNext()) {
-                            Range2Result resultNode = resultIterator.next().getValue();
-                            builder.setLength(0);
-                            builder.append(resultNode.mainIP).append(",")
-                                    .append(resultNode.calledIP).append(",")
-                                    .append(resultNode.computeSuccessRate(format)).append(",")
-                                    .append(resultNode.computeP99());
-                            resultList.add(builder.toString());
+                    HashMap<String, HashMap<String, ArrayList<String>>> timestampMap = computedRange2Result[index];
+
+                    for (Entry<String, ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>> node : functionMap.entrySet()) {
+                        String mainService = node.getKey();
+                        timestampMap.put(mainService, new HashMap<>());
+                        HashMap<String, ArrayList<String>> mainServiceMap = timestampMap.get(mainService);
+
+                        ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> valueMap = node.getValue();
+
+                        // mainIP, calledIP,
+                        for (Entry<String, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> entry2 :
+                                valueMap.entrySet()) {
+                            String calledService = entry2.getKey();
+                            ArrayList<String> resultList = new ArrayList<>();
+
+                            for (Entry<String, ConcurrentHashMap<String, Range2Result>> entry3 :
+                                    entry2.getValue().entrySet()) {
+                                String mainIP = entry3.getKey();
+
+                                for (Entry<String, Range2Result> entry4 :
+                                        entry3.getValue().entrySet()) {
+                                    String calledIP = entry4.getKey();
+
+                                    Range2Result result = entry4.getValue();
+                                    builder.append(mainIP).append(",")
+                                            .append(calledIP).append(",")
+                                            .append(result.computeSuccessRate(format)).append(",")
+                                            .append(result.computeP99());
+                                    resultList.add(builder.toString());
+                                }
+                            }
+                            mainServiceMap.put(calledService, resultList);
                         }
 //                        String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
-                        timestampMap.put(key, resultList);
+//                        timestampMap.put(key, resultList);
 //                        computedRange2Result.put(key + date, resultList);
                     }
                     workIndex = computeIdx.getAndIncrement();
@@ -237,15 +264,19 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         range2KeyBuilder.setLength(0);
         int timeKey = DateUtils.DateToMinuteTimeStamp(time);
-        if(timeKey < range2MintimeStamp || timeKey > range2MaxTimeStamp) {
+        if (timeKey < range2MintimeStamp || timeKey > range2MaxTimeStamp) {
             return new ArrayList<>();
         }
         String range2Key = range2KeyBuilder.append(caller).append(responder).toString();
 
-        Map<String, ArrayList<String>> service2Result = computedRange2Result[timeKey-range2MintimeStamp];
-        ArrayList<String> result = service2Result.get(range2Key);
-
-        return result == null ? new ArrayList<>() : result;
+        Map<String, HashMap<String, ArrayList<String>>> service2Result = computedRange2Result[timeKey - range2MintimeStamp];
+        List<String> result = null;
+        if(service2Result.containsKey(caller)) {
+            if(service2Result.get(caller).containsKey(responder)) {
+                result = service2Result.get(caller).get(responder);
+            }
+        }
+        return result;
     }
 
 

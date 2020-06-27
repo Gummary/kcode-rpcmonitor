@@ -2,13 +2,11 @@ package com.kuaishou.kcode.handler;
 
 import java.nio.MappedByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 
 import com.kuaishou.kcode.KcodeRpcMonitorImpl;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.SuccessRate;
 import com.kuaishou.kcode.utils.BufferParser;
-import com.kuaishou.kcode.utils.GlobalAverageMeter;
 
 public class BuildRPCMessageHandler implements Runnable {
 
@@ -21,7 +19,14 @@ public class BuildRPCMessageHandler implements Runnable {
     private int startIndex;
     private int endIndex;
     private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
-    private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
+    // timestamp, mainService, calledService, mainIp, calledIp, Range2Result
+    private ConcurrentHashMap<Integer, // timestamp
+                ConcurrentHashMap<String, // mainService
+                        ConcurrentHashMap<String, // calledService
+                                ConcurrentHashMap<String, // mainIP
+                                        ConcurrentHashMap<String, // calledIP
+                                                Range2Result>>>>> range2MessageMap;
+//    private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
 
     private KcodeRpcMonitorImpl kcode;
 
@@ -30,11 +35,15 @@ public class BuildRPCMessageHandler implements Runnable {
      * 因为一个batch中数据基本为同一个分钟时间戳，所以做个缓存
      */
     private int cachedMinute = -1;
-    private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
+//    private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
+    private ConcurrentHashMap<String,
+                ConcurrentHashMap<String,
+                        ConcurrentHashMap<String,
+                                ConcurrentHashMap<String, Range2Result>>>> cachedMap;
 
 
     public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
-                                    ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
+                                  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>>> range2MessageMap,
                                   ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result) {
         this.kcode = kcode;
         this.range2MessageMap = range2MessageMap;
@@ -128,14 +137,19 @@ public class BuildRPCMessageHandler implements Runnable {
 //        }
 //        threadAverageMeter.updateStart(CALRANGE2TIMER);
 
-        String range2Key = mainService + calledService;
-        cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>());
-        ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
+        cachedMap.putIfAbsent(mainService, new ConcurrentHashMap<>());
+        ConcurrentHashMap<String,
+                ConcurrentHashMap<String,
+                        ConcurrentHashMap<String, Range2Result>>> map1 = cachedMap.get(mainService);
 
+        map1.putIfAbsent(calledService, new ConcurrentHashMap<>());
+        ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> map2 = map1.get(calledService);
 
-        String range2IPKey = mainIP + '-' + calledIP;
-        ipResult.putIfAbsent(range2IPKey, new Range2Result(mainIP, calledIP));
-        Range2Result result = ipResult.get(range2IPKey);
+        map2.putIfAbsent(mainIP, new ConcurrentHashMap<>());
+        ConcurrentHashMap<String, Range2Result> map3 = map2.get(mainIP);
+
+        map3.putIfAbsent(calledIP, new Range2Result(mainIP, calledIP));
+        Range2Result result = map3.get(calledIP);
         result.fillMessage(isSuccess, useTime);
 
 //        threadAverageMeter.updateTimer(CALRANGE2TIMER);
