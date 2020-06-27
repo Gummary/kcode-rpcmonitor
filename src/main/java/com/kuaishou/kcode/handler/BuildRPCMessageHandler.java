@@ -5,6 +5,7 @@ import java.nio.MappedByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import com.kuaishou.kcode.KcodeRpcMonitorImpl;
@@ -21,6 +22,7 @@ public class BuildRPCMessageHandler implements Runnable {
     private int endIndex;
     private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
     private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
+    private CountDownLatch latch = null;
 
 
     private String remindBuffer = "";
@@ -78,7 +80,8 @@ public class BuildRPCMessageHandler implements Runnable {
         }
 
         //回调并更新
-        kcode.getCurrentIdxAndUpdateIt(this);
+//        kcode.getCurrentIdxAndUpdateIt(this);
+        latch.countDown();
     }
 
     private void buildStringMessage(String message) {
@@ -181,10 +184,12 @@ public class BuildRPCMessageHandler implements Runnable {
     }
 
 
-    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
+    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex, CountDownLatch latch) {
+        System.out.println(String.format("Get new buffer %d %d", startIndex, endIndex));
         this.targetBuffer = targetBuffer;
         this.remindBuffer = remindBuffer;
         this.startIndex = startIndex;
         this.endIndex = endIndex;
+        this.latch = latch;
     }
 }
