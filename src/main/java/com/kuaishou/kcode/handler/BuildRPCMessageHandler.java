@@ -175,7 +175,7 @@ public class BuildRPCMessageHandler implements Runnable {
         threadAverageMeter.updateTimer(CALRANGE3TIMER);
     }
 
-    
+
     public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
 
         if(targetBuffer == null && startIndex == -1) {
@@ -188,5 +188,6 @@ public class BuildRPCMessageHandler implements Runnable {
         this.remindBuffer = remindBuffer;
         this.startIndex = startIndex;
         this.endIndex = endIndex;
+        
     }
 }
