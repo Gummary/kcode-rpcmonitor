@@ -1,10 +1,13 @@
 package com.kuaishou.kcode.handler;
 
 import java.nio.MappedByteBuffer;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import com.kuaishou.kcode.KcodeRpcMonitorImpl;
+import com.kuaishou.kcode.model.MinuteMessageContainer;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.SuccessRate;
 import com.kuaishou.kcode.utils.BufferParser;
@@ -12,7 +15,7 @@ import com.kuaishou.kcode.utils.GlobalAverageMeter;
 
 public class BuildRPCMessageHandler implements Runnable {
 
-//    public GlobalAverageMeter threadAverageMeter = new GlobalAverageMeter();
+    public GlobalAverageMeter threadAverageMeter = new GlobalAverageMeter();
     private final static String PARSERTIMER = "PARSER";
     private final static String CALRANGE2TIMER = "RANGE2RESULT";
     private final static String CALRANGE3TIMER = "RANGE3RESULT";
@@ -21,28 +24,31 @@ public class BuildRPCMessageHandler implements Runnable {
     private int startIndex;
     private int endIndex;
     private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
-    private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
+    private HashMap<String, HashMap<String, Range2Result>> range2MessageMap;
+    private LinkedBlockingQueue<MinuteMessageContainer>[] range2ResultQueues;
 
     private KcodeRpcMonitorImpl kcode;
+    private int mergeThreadNum;
 
     private String remindBuffer = "";
     /**
      * 因为一个batch中数据基本为同一个分钟时间戳，所以做个缓存
      */
     private int cachedMinute = -1;
-    private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
 
 
     public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
-                                    ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
-                                  ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result) {
+                                  LinkedBlockingQueue<MinuteMessageContainer>[] range2ResultQueues,
+                                  ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result,
+                                  int mergeThreadNum) {
         this.kcode = kcode;
-        this.range2MessageMap = range2MessageMap;
         this.range3Result = range3Result;
+        this.range2ResultQueues = range2ResultQueues;
+        this.mergeThreadNum = mergeThreadNum;
 
-//        threadAverageMeter.createTimer(PARSERTIMER);
-//        threadAverageMeter.createTimer(CALRANGE2TIMER);
-//        threadAverageMeter.createTimer(CALRANGE3TIMER);
+        threadAverageMeter.createTimer(PARSERTIMER);
+        threadAverageMeter.createTimer(CALRANGE2TIMER);
+        threadAverageMeter.createTimer(CALRANGE3TIMER);
     }
 
     @Override
@@ -94,10 +100,10 @@ public class BuildRPCMessageHandler implements Runnable {
     }
 
     private void buildMessage(BufferParser parser) {
-//        if(!threadAverageMeter.isTimerStarted(PARSERTIMER)) {
-//            threadAverageMeter.startTimer(PARSERTIMER);
-//        }
-//        threadAverageMeter.updateStart(PARSERTIMER);
+        if(!threadAverageMeter.isTimerStarted(PARSERTIMER)) {
+            threadAverageMeter.startTimer(PARSERTIMER);
+        }
+        threadAverageMeter.updateStart(PARSERTIMER);
 
         String mainService = parser.parseString();
         String mainIP = parser.parseString();
@@ -107,30 +113,39 @@ public class BuildRPCMessageHandler implements Runnable {
         int useTime = parser.parseInt();
         int secondTimeStamp = (int)(parser.parseLong()/60000);
 
-//        threadAverageMeter.updateTimer(PARSERTIMER);
+        threadAverageMeter.updateTimer(PARSERTIMER);
 
         submitMessage(mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp);
+    }
+
+    private void submitRange2Result(int minuteTimeStamp) {
+        if(minuteTimeStamp == -1 || range2MessageMap == null) {
+            return;
+        }
+//        System.out.println(String.format("Submit Minute %s", minuteTimeStamp));
+        range2ResultQueues[minuteTimeStamp % mergeThreadNum].add(new MinuteMessageContainer(minuteTimeStamp, range2MessageMap));
     }
 
     private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
 
 //        System.out.println(String.format("Get new log %s %s %s %s %b %d %d", mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp));
 
-        if (cachedMinute != secondTimeStamp) {
-            cachedMinute = secondTimeStamp;
-            range2MessageMap.putIfAbsent(secondTimeStamp, new ConcurrentHashMap<>());
-            cachedMap = range2MessageMap.get(secondTimeStamp);
-        }
 
         //二阶段统计
-//        if(!threadAverageMeter.isTimerStarted(CALRANGE2TIMER)) {
-//            threadAverageMeter.startTimer(CALRANGE2TIMER);
-//        }
-//        threadAverageMeter.updateStart(CALRANGE2TIMER);
+        if(!threadAverageMeter.isTimerStarted(CALRANGE2TIMER)) {
+            threadAverageMeter.startTimer(CALRANGE2TIMER);
+        }
+        threadAverageMeter.updateStart(CALRANGE2TIMER);
+
+        if (cachedMinute != secondTimeStamp) {
+            submitRange2Result(cachedMinute);
+            cachedMinute = secondTimeStamp;
+            range2MessageMap = new HashMap<>();
+        }
 
         String range2Key = mainService + calledService;
-        cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>());
-        ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
+        range2MessageMap.putIfAbsent(range2Key, new HashMap<>());
+        HashMap<String, Range2Result> ipResult = range2MessageMap.get(range2Key);
 
 
         String range2IPKey = mainIP + '-' + calledIP;
@@ -138,14 +153,14 @@ public class BuildRPCMessageHandler implements Runnable {
         Range2Result result = ipResult.get(range2IPKey);
         result.fillMessage(isSuccess, useTime);
 
-//        threadAverageMeter.updateTimer(CALRANGE2TIMER);
-
+        threadAverageMeter.updateTimer(CALRANGE2TIMER);
+//
 
         //三阶段统计
-//        if(!threadAverageMeter.isTimerStarted(CALRANGE3TIMER)){
-//            threadAverageMeter.startTimer(CALRANGE3TIMER);
-//        }
-//        threadAverageMeter.updateStart(CALRANGE3TIMER);
+        if(!threadAverageMeter.isTimerStarted(CALRANGE3TIMER)){
+            threadAverageMeter.startTimer(CALRANGE3TIMER);
+        }
+        threadAverageMeter.updateStart(CALRANGE3TIMER);
 
         range3Result.putIfAbsent(calledService, new ConcurrentHashMap<>());
         ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
@@ -157,10 +172,16 @@ public class BuildRPCMessageHandler implements Runnable {
         }
         successRate.total.incrementAndGet();
 
-//        threadAverageMeter.updateTimer(CALRANGE3TIMER);
+        threadAverageMeter.updateTimer(CALRANGE3TIMER);
     }
 
     public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
+
+        if(targetBuffer == null && startIndex == -1) {
+            submitRange2Result(cachedMinute);
+        }
+
+
 //        System.out.println(String.format("%d, %d", startIndex, endIndex));
         this.targetBuffer = targetBuffer;
         this.remindBuffer = remindBuffer;

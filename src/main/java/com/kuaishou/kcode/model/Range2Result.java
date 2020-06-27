@@ -17,18 +17,18 @@ public class Range2Result {
         super();
         this.mainIP = mainIP;
         this.calledIP = calledIP;
-        this.queue = new PriorityBlockingQueue<Integer>(200, new Comparator<Integer>() {
-
-            @Override
-            public int compare(Integer o1, Integer o2) {
-                return o2 - o1;
-            }
-        });
+        this.queue = new PriorityBlockingQueue<>(200, (o1, o2) -> o2 - o1);
         this.successRate = new SuccessRate();
         this.ansP99 = -1;
     }
 
-
+    public void mergeResult(Range2Result result) {
+        successRate.success.addAndGet(result.successRate.success.get());
+        successRate.total.addAndGet(result.successRate.total.get());
+        while(!result.queue.isEmpty()) {
+            this.queue.add(result.queue.poll());
+        }
+    }
 
     public void fillMessage(boolean isSuccess, int useTime) {
         queue.add(useTime);
