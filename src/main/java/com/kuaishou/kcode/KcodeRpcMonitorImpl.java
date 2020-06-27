@@ -90,7 +90,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             String remindBuffer = "";
             // 分块读取文件
             for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
-                System.out.println("Read block " + currentBlock);
+//                System.out.println("Read block " + currentBlock);
                 int mapSize;
                 mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
@@ -148,7 +148,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 			}
         }
 //        String prepareStatistic = globalAverageMeter.getStatisticString();
-        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
+//        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
 //        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
 //        System.out.println(String.format("%s %s", prepareStatistic, thread0Statistic));
     }
