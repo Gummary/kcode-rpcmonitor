@@ -153,6 +153,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //        System.out.println(String.format("%s %s", prepareStatistic, thread0Statistic));
     }
 
+
     private void computeRange3Result() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(CORE_THREAD_NUM);
         String[] keyList = range3Result.keySet().toArray(new String[0]);
