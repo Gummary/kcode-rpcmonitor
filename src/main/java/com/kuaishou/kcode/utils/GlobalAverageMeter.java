@@ -1,4 +1,4 @@
-package com.kuaishou.kcode.model;
+package com.kuaishou.kcode.utils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,17 +30,17 @@ public class GlobalAverageMeter {
 
         public void startTimer() {
             isStarted = true;
-            startTimeStamp = System.currentTimeMillis();
+            startTimeStamp = System.nanoTime();
         }
 
         public void updateTimer() {
-            long end = System.currentTimeMillis();
+            long end = System.nanoTime();
             Update(end - startTimeStamp);
             startTimeStamp = end;
         }
 
         public void UpdateStart() {
-            startTimeStamp = System.currentTimeMillis();
+            startTimeStamp = System.nanoTime();
         }
 
         public void Update(long val) {
@@ -73,7 +73,7 @@ public class GlobalAverageMeter {
 
         @Override
         public String toString() {
-            return String.format("Average %.7f, TotalNumber %d,Total Time %f", average, n, total);
+            return String.format("Average %.5f ms, TotalNumber %d,Total Time %.5f ms", average/1e6, n, total/1e6);
         }
     }
 
@@ -99,7 +99,7 @@ public class GlobalAverageMeter {
         timers.get(timerName).startTimer();
     }
 
-    public void updateTimerStart(String timerName) {
+    public void updateStart(String timerName) {
         timers.get(timerName).UpdateStart();
     }
 
@@ -108,12 +108,11 @@ public class GlobalAverageMeter {
     }
 
     public String getStatisticString() {
-        String formatString = "%s\n";
+        String formatString = "%s:%s ";
         StringBuilder builder = new StringBuilder();
         for (Map.Entry<String, AverageMeter> entry:
             timers.entrySet()){
-            builder.append(String.format(formatString, entry.getKey()));
-            builder.append(String.format(formatString, entry.getValue().toString()));
+            builder.append(String.format(formatString, entry.getKey(), entry.getValue().toString()));
         }
 
         return builder.toString();

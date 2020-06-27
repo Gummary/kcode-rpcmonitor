@@ -30,9 +30,9 @@ public class Range2Result {
 
 
 
-    public void fillMessage(int isSuccess, int useTime) {
+    public void fillMessage(boolean isSuccess, int useTime) {
         queue.add(useTime);
-        if(isSuccess > 0) {
+        if(isSuccess) {
             successRate.success.incrementAndGet();
         }
         successRate.total.incrementAndGet();
