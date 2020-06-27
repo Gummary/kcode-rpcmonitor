@@ -48,7 +48,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final StringBuilder range2KeyBuilder = new StringBuilder();
 
     // Timer Setting
-    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+//    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     private static final String PREPARETIMER = "PREPARE";
     private static final String RANGE2TIMER = "RANGE2";
     private static final String RANGE3TIMER = "RANGE3";
@@ -66,7 +66,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             readyedMessageHandlers.add(writeRPCMessageHandlers[i]);
         }
 
-        globalAverageMeter.createTimer(PREPARETIMER);
+//        globalAverageMeter.createTimer(PREPARETIMER);
 //        globalAverageMeter.createTimer(RANGE2TIMER);
 //        globalAverageMeter.createTimer(RANGE3TIMER);
     }
@@ -74,7 +74,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public void prepare(String path) throws Exception {
-        globalAverageMeter.startTimer(PREPARETIMER);
+//        globalAverageMeter.startTimer(PREPARETIMER);
         RandomAccessFile randomAccessFile = null;
         try {
             randomAccessFile = new RandomAccessFile(path, "r");
@@ -138,7 +138,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         } finally {
             rpcMessageHandlerPool.shutdown();
             range23ComputePool.shutdown();
-            globalAverageMeter.updateTimer(PREPARETIMER);
+//            globalAverageMeter.updateTimer(PREPARETIMER);
             if (randomAccessFile != null) {
             	try {
 					randomAccessFile.close();
@@ -147,9 +147,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				}
 			}
         }
-        String prepareStatistic = globalAverageMeter.getStatisticString();
+//        String prepareStatistic = globalAverageMeter.getStatisticString();
         String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
-        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
+//        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
 //        System.out.println(String.format("%s %s", prepareStatistic, thread0Statistic));
     }
 

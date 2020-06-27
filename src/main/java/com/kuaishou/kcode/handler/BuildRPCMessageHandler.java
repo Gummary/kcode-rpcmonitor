@@ -12,7 +12,7 @@ import com.kuaishou.kcode.utils.GlobalAverageMeter;
 
 public class BuildRPCMessageHandler implements Runnable {
 
-    public GlobalAverageMeter threadAverageMeter = new GlobalAverageMeter();
+//    public GlobalAverageMeter threadAverageMeter = new GlobalAverageMeter();
     private final static String PARSERTIMER = "PARSER";
     private final static String CALRANGE2TIMER = "RANGE2RESULT";
     private final static String CALRANGE3TIMER = "RANGE3RESULT";
@@ -40,9 +40,9 @@ public class BuildRPCMessageHandler implements Runnable {
         this.range2MessageMap = range2MessageMap;
         this.range3Result = range3Result;
 
-        threadAverageMeter.createTimer(PARSERTIMER);
-        threadAverageMeter.createTimer(CALRANGE2TIMER);
-        threadAverageMeter.createTimer(CALRANGE3TIMER);
+//        threadAverageMeter.createTimer(PARSERTIMER);
+//        threadAverageMeter.createTimer(CALRANGE2TIMER);
+//        threadAverageMeter.createTimer(CALRANGE3TIMER);
     }
 
     @Override
@@ -94,10 +94,10 @@ public class BuildRPCMessageHandler implements Runnable {
     }
 
     private void buildMessage(BufferParser parser) {
-        if(!threadAverageMeter.isTimerStarted(PARSERTIMER)) {
-            threadAverageMeter.startTimer(PARSERTIMER);
-        }
-        threadAverageMeter.updateStart(PARSERTIMER);
+//        if(!threadAverageMeter.isTimerStarted(PARSERTIMER)) {
+//            threadAverageMeter.startTimer(PARSERTIMER);
+//        }
+//        threadAverageMeter.updateStart(PARSERTIMER);
 
         String mainService = parser.parseString();
         String mainIP = parser.parseString();
@@ -107,7 +107,7 @@ public class BuildRPCMessageHandler implements Runnable {
         int useTime = parser.parseInt();
         int secondTimeStamp = (int)(parser.parseLong()/60000);
 
-        threadAverageMeter.updateTimer(PARSERTIMER);
+//        threadAverageMeter.updateTimer(PARSERTIMER);
 
         submitMessage(mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp);
     }
@@ -123,10 +123,10 @@ public class BuildRPCMessageHandler implements Runnable {
         }
 
         //二阶段统计
-        if(!threadAverageMeter.isTimerStarted(CALRANGE2TIMER)) {
-            threadAverageMeter.startTimer(CALRANGE2TIMER);
-        }
-        threadAverageMeter.updateStart(CALRANGE2TIMER);
+//        if(!threadAverageMeter.isTimerStarted(CALRANGE2TIMER)) {
+//            threadAverageMeter.startTimer(CALRANGE2TIMER);
+//        }
+//        threadAverageMeter.updateStart(CALRANGE2TIMER);
 
         String range2Key = mainService + calledService;
         cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>());
@@ -138,14 +138,14 @@ public class BuildRPCMessageHandler implements Runnable {
         Range2Result result = ipResult.get(range2IPKey);
         result.fillMessage(isSuccess, useTime);
 
-        threadAverageMeter.updateTimer(CALRANGE2TIMER);
+//        threadAverageMeter.updateTimer(CALRANGE2TIMER);
 
 
         //三阶段统计
-        if(!threadAverageMeter.isTimerStarted(CALRANGE3TIMER)){
-            threadAverageMeter.startTimer(CALRANGE3TIMER);
-        }
-        threadAverageMeter.updateStart(CALRANGE3TIMER);
+//        if(!threadAverageMeter.isTimerStarted(CALRANGE3TIMER)){
+//            threadAverageMeter.startTimer(CALRANGE3TIMER);
+//        }
+//        threadAverageMeter.updateStart(CALRANGE3TIMER);
 
         range3Result.putIfAbsent(calledService, new ConcurrentHashMap<>());
         ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
@@ -157,7 +157,7 @@ public class BuildRPCMessageHandler implements Runnable {
         }
         successRate.total.incrementAndGet();
 
-        threadAverageMeter.updateTimer(CALRANGE3TIMER);
+//        threadAverageMeter.updateTimer(CALRANGE3TIMER);
     }
 
     public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
