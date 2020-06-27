@@ -70,7 +70,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
     public void prepare(String path) {
         globalAverageMeter.startTimer(PREPARETIMER);
-        RandomAccessFile randomAccessFile;
+        RandomAccessFile randomAccessFile = null;
         try {
             randomAccessFile = new RandomAccessFile(path, "r");
             this.rpcDataFile = randomAccessFile;
@@ -140,7 +140,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             range23ComputePool.shutdown();
 
             globalAverageMeter.updateTimer(PREPARETIMER);
-
+            if (randomAccessFile != null) {
+            	try {
+					randomAccessFile.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+            
         }
     }
 
