@@ -50,6 +50,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final String RANGE3TIMER = "RANGE3";
     private static int range3CalledTime = 0;
 
+    
     //TEST
     // 不要修改访问级别
     public KcodeRpcMonitorImpl() {
