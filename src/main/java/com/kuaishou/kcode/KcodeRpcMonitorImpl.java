@@ -28,10 +28,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     public RandomAccessFile rpcDataFile;
     public FileChannel rpcDataFileChannel;
-    private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
+    private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<>(32);
     private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
-    private final BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
-    private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
+    private BuildRPCMessageHandler[] writeRPCMessageHandlers;
 
     private static DecimalFormat format;
 
@@ -61,10 +60,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         format = new DecimalFormat("#.00");
         format.setRoundingMode(RoundingMode.DOWN);
         range3Result = new ConcurrentHashMap<>();
-        for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
-            writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(range2MessageMap, range3Result);
-            readyedMessageHandlers.add(writeRPCMessageHandlers[i]);
-        }
 
         globalAverageMeter.createTimer(PREPARETIMER);
 //        globalAverageMeter.createTimer(RANGE2TIMER);
@@ -86,11 +81,16 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             //存在剩余 -> block数 + 1
             maxBlockSize = fileSize % BLOCK_SIZE == 0 ? maxBlockSize : maxBlockSize + 1;
 
+            writeRPCMessageHandlers = new BuildRPCMessageHandler[maxBlockSize];
+
             CountDownLatch latch = new CountDownLatch(maxBlockSize);
 
             StringBuilder remindBufferBuilder = new StringBuilder();
             // 分块读取文件
             for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
+
+                writeRPCMessageHandlers[currentBlock] = new BuildRPCMessageHandler(range2MessageMap, range3Result);
+
                 int mapSize;
                 mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
@@ -100,7 +100,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     lastLR -= 1;
                 }
 
-                BuildRPCMessageHandler rpcMessageHandler = readyedMessageHandlers.take();
+                BuildRPCMessageHandler rpcMessageHandler = writeRPCMessageHandlers[currentBlock];
                 if(currentBlock == 0) {
                     rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", 0, lastLR, latch);
                 }else {
@@ -266,17 +266,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         return resultString;
     }
 
-
-    /**
-     * 当前WriteRPCMessageHandler获得自己的读取任务
-     * 设置该writeRPCMessageHandler在当前block中处理的数据范围
-     * 如果这个读取任务超过两个Block，那么更新blocks数组的设置（1 -> 0后1 -> null）及WriteRPCMessageHandler的标志位true
-     *
-     * @param writeRPCMessageHandler
-     */
-    public void getCurrentIdxAndUpdateIt(BuildRPCMessageHandler writeRPCMessageHandler) {
-        readyedMessageHandlers.add(writeRPCMessageHandler);
-    }
 
     @Deprecated
     public void writeMinuteRPCMEssgaeToFile(int Minute) {
