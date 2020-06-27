@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     public static final long BLOCK_SIZE = Integer.MAX_VALUE;
-    private static final int READ_THREAD_NUM = 6;
+    private static final int READ_THREAD_NUM = 7;
     private static final int MERGE_THREAD_NUM = 2;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(READ_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     public RandomAccessFile rpcDataFile;
@@ -96,48 +96,30 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             this.rpcDataFile = randomAccessFile;
             this.rpcDataFileChannel = randomAccessFile.getChannel();
             long fileSize = randomAccessFile.length();
-            //下取整
-            int maxBlockSize = (int) (fileSize / BLOCK_SIZE);
-            //存在剩余 -> block数 + 1
-            maxBlockSize = fileSize % BLOCK_SIZE == 0 ? maxBlockSize : maxBlockSize + 1;
 
+            int mapSizePerThread = (int) (fileSize / READ_THREAD_NUM);
 
             String remindBuffer = "";
-            // 分块读取文件
-            for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
-//                System.out.println("Read block " + currentBlock);
-                int mapSize;
-                mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
-                MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
-
-                int lastLR = mapSize - 1;
+            long startIndex = 0;
+            for (int i = 0; i < READ_THREAD_NUM; i++) {
+                MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, startIndex, mapSizePerThread);
+                int lastLR = mapSizePerThread - 1;
                 while (mappedByteBuffer.get(lastLR) != '\n') {
                     lastLR -= 1;
                 }
-                // 每个线程读取等量的数据
-                int readSize = mapSize / READ_THREAD_NUM;
-                int startIndex = 0;
-                for (int i = 0; i < READ_THREAD_NUM; i++) {
-                    BuildRPCMessageHandler rpcMessageHandler = readyedMessageHandlers.take();
-                    int endIndex = startIndex + readSize;
-                    // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
-                    if (i == 0) {
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, startIndex, endIndex);
-                    } else if(i == READ_THREAD_NUM-1){ //其他线程都是完整的数据
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, lastLR);
-                    } else {
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, endIndex);
-                    }
-                    startIndex = endIndex;
-                    rpcMessageHandlerPool.execute(rpcMessageHandler);
-                }
+
+                BuildRPCMessageHandler rpcMessageHandler = readyedMessageHandlers.take();
+                rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, 0, lastLR);
+                rpcMessageHandlerPool.execute(rpcMessageHandler);
+
                 StringBuilder builder = new StringBuilder();
                 lastLR += 1;
-                while (lastLR < mapSize) {
+                while (lastLR < mapSizePerThread) {
                     builder.append((char) mappedByteBuffer.get(lastLR));
                     lastLR++;
                 }
                 remindBuffer = builder.toString();
+                startIndex += mapSizePerThread;
             }
 
             for (int i = 0; i < READ_THREAD_NUM; i++) {
@@ -155,7 +137,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 totalTimeStamp += mergeThread[i].getTimeStampSize();
             }
             computedRange2Result = new HashMap[totalTimeStamp];
-
             computeRange2Result();
             computeRange3Result();
 
