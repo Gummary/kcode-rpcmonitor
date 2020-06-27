@@ -22,8 +22,8 @@ public class BuildRPCMessageHandler implements Runnable {
     private int endIndex;
     private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
     private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
-    private CountDownLatch latch = null;
 
+    private KcodeRpcMonitorImpl kcode;
 
     private String remindBuffer = "";
     /**
@@ -33,8 +33,10 @@ public class BuildRPCMessageHandler implements Runnable {
     private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
 
 
-    public BuildRPCMessageHandler(ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
+    public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
+                                    ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
                                   ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result) {
+        this.kcode = kcode;
         this.range2MessageMap = range2MessageMap;
         this.range3Result = range3Result;
 
@@ -45,34 +47,35 @@ public class BuildRPCMessageHandler implements Runnable {
 
     @Override
     public void run() {
-        int[] splitIdxList = new int[6];//一条消息有6块
-        int countSpiltIdx = 0;
         byte curByte;
-        int messageStart = 0;
-
+        int messageStart = startIndex;
         StringBuilder builder = new StringBuilder();
+        builder.append(remindBuffer);
         // 处理被截断的第一条数据
-        if (!"".equals(remindBuffer)) {
-            builder.append(remindBuffer);
-            while ((curByte = targetBuffer.get(startIndex)) != '\n') {
-                startIndex += 1;
-                builder.append((char) curByte);
-            }
+        while ((curByte = targetBuffer.get(messageStart)) != '\n') {
+            messageStart += 1;
+            builder.append((char) curByte);
+        }
+        // 第一个batch还要处理上一个block的尾部
+        if (startIndex == 0) {
             String logString = builder.toString();
             buildStringMessage(logString);
-            // 跳过第一条数据的回车
-            startIndex += 1;
         }
-        messageStart = startIndex;
-        // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
+        // 跳过第一条数据的回车
+        messageStart ++;
+        // 右边界向后找回车
+        while(targetBuffer.get(endIndex) != '\n') {
+            endIndex += 1;
+        }
+
         BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
 
+        // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
         while(bufferParser.getOffset() <= endIndex) {
             buildMessage(bufferParser);
         }
         //回调并更新
-//        kcode.getCurrentIdxAndUpdateIt(this);
-        latch.countDown();
+        kcode.getCurrentIdxAndUpdateIt(this);
     }
 
     private void buildStringMessage(String message) {
@@ -157,11 +160,11 @@ public class BuildRPCMessageHandler implements Runnable {
         threadAverageMeter.updateTimer(CALRANGE3TIMER);
     }
 
-    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex, CountDownLatch latch) {
+    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
+        System.out.println(String.format("%d, %d", startIndex, endIndex));
         this.targetBuffer = targetBuffer;
         this.remindBuffer = remindBuffer;
         this.startIndex = startIndex;
         this.endIndex = endIndex;
-        this.latch = latch;
     }
 }
