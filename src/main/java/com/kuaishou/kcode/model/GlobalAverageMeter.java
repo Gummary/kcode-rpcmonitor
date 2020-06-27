@@ -73,7 +73,7 @@ public class GlobalAverageMeter {
 
         @Override
         public String toString() {
-            return String.format("Average %.7f, Total %d", average, n);
+            return String.format("Average %.7f, TotalNumber %d,Total Time %d", average, n, total);
         }
     }
 
