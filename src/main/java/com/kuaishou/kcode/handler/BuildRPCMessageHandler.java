@@ -26,6 +26,10 @@ public class BuildRPCMessageHandler implements Runnable {
 
     private String remindBuffer = "";
 
+    private int messageCount = 0;
+    private long averageTime = 0;
+    private long totalTime = 0;
+
     /**
      * 因为一个batch中数据基本为同一个分钟时间戳，所以做个缓存
      */
@@ -73,9 +77,15 @@ public class BuildRPCMessageHandler implements Runnable {
         BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
 
         // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
+        long start = System.nanoTime();
         while (bufferParser.getOffset() <= endIndex) {
             buildMessage(bufferParser);
+            totalTime += System.nanoTime() - start;
+            messageCount += 1;
+            start = System.nanoTime();
         }
+
+        System.out.println(String.format("TotalTime %f Average Time %f Total Numer %d", totalTime/1e6, totalTime/messageCount/1e6, messageCount));
         //回调并更新
         kcode.getCurrentIdxAndUpdateIt(this);
     }
@@ -116,7 +126,7 @@ public class BuildRPCMessageHandler implements Runnable {
 
     private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
 //        System.out.println("Add message");
-        messageQueue.add(new Message(mainService, calledService, mainIP, calledIP, isSuccess, useTime, secondTimeStamp));
+//        messageQueue.add(new Message(mainService, calledService, mainIP, calledIP, isSuccess, useTime, secondTimeStamp));
     }
 
 

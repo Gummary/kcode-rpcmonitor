@@ -80,8 +80,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         maxBlockSize = fileSize % BLOCK_SIZE == 0 ? maxBlockSize : maxBlockSize + 1;
 
         rpcMessageHandlerPool.execute(mergeHandler);
-        rpcMessageHandlerPool.execute(range2ResultCalculator);
-        rpcMessageHandlerPool.execute(range3ResultCalculator);
+//        rpcMessageHandlerPool.execute(range2ResultCalculator);
+//        rpcMessageHandlerPool.execute(range3ResultCalculator);
 
         String remindBuffer = "";
         // 分块读取文件
