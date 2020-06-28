@@ -20,6 +20,10 @@ public class Range3Result implements Comparable{
         this.successRate = successRate;
     }
 
+    public void MergeResult(Range3Result result) {
+    }
+
+
     public Range3Result(String timeStamp, double successRate) {
         this.timeStamp = timeStamp;
         this.successRate = successRate;

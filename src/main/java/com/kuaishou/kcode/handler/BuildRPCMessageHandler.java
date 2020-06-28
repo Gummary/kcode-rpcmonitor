@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -22,8 +23,8 @@ public class BuildRPCMessageHandler implements Runnable {
     private MappedByteBuffer targetBuffer;
     private int startIndex;
     private int endIndex;
-    private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
-    private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
+    public HashMap<String, HashMap<Integer, SuccessRate>> range3Result;
+    public ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
 
 
     private String remindBuffer = "";
@@ -44,11 +45,12 @@ public class BuildRPCMessageHandler implements Runnable {
 
 
     public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
-                                  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
-                                  ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result) {
+                                  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap) {
         this.kcode = kcode;
         this.range2MessageMap = range2MessageMap;
-        this.range3Result = range3Result;
+//        this.range3Result = range3Result;
+//        this.range2MessageMap = new HashMap<>();
+        this.range3Result = new HashMap<>();
 
         averageMeter = new GlobalAverageMeter();
         averageMeter.createTimer(PARSEDATATIMER);
@@ -93,6 +95,10 @@ public class BuildRPCMessageHandler implements Runnable {
         //回调并更新
         kcode.getCurrentIdxAndUpdateIt(this);
         averageMeter.updateTimer(RUNTIMER);
+    }
+
+    public HashMap<Integer, SuccessRate> getRange3Rate(String key) {
+        return range3Result.get(key);
     }
 
     private void buildStringMessage(String message) {
@@ -155,8 +161,8 @@ public class BuildRPCMessageHandler implements Runnable {
 
         averageMeter.updateStart(ADDRESULT3TIMER);
         //三阶段统计
-        range3Result.putIfAbsent(calledService, new ConcurrentHashMap<>());
-        ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
+        range3Result.putIfAbsent(calledService, new HashMap<>());
+        HashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
 
         successRateMap.putIfAbsent(secondTimeStamp, new SuccessRate());
         SuccessRate successRate = successRateMap.get(secondTimeStamp);

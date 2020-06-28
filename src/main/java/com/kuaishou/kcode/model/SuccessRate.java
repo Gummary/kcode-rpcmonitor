@@ -6,6 +6,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SuccessRate {
 	public AtomicInteger success = new AtomicInteger();
 	public AtomicInteger total = new AtomicInteger();
+
+	public void mergeSuccessRate(SuccessRate rate) {
+		success.addAndGet(rate.success.get());
+		total.addAndGet(rate.total.get());
+	}
 	
 	
 	public String computeSuccessRate(DecimalFormat format) {

@@ -1,7 +1,6 @@
 package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
-import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
 import com.kuaishou.kcode.model.GlobalAverageMeter;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
@@ -27,14 +26,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
-    public static final long BLOCK_SIZE = 1000*1024*1024;
+    public static final long BLOCK_SIZE = 1000 * 1024 * 1024;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
     public RandomAccessFile rpcDataFile;
     public FileChannel rpcDataFileChannel;
     private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
-    private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
+//    private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
     private final BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
     private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
 
@@ -63,9 +62,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public KcodeRpcMonitorImpl() {
         format = new DecimalFormat("#.00");
         format.setRoundingMode(RoundingMode.DOWN);
-        range3Result = new ConcurrentHashMap<>();
+//        range3Result = new ConcurrentHashMap<>();
         for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
-            writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result);
+            writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap);
             readyedMessageHandlers.add(writeRPCMessageHandlers[i]);
         }
 
@@ -122,7 +121,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
                     if (i == 0) {
                         rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, startIndex, endIndex);
-                    } else if(i == CORE_THREAD_NUM-1){ // 最后一个线程读取到这一块的醉猴一个回车
+                    } else if (i == CORE_THREAD_NUM - 1) { // 最后一个线程读取到这一块的醉猴一个回车
                         rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, lastLR);
                     } else {//其他线程都是完整的数据
                         rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, endIndex);
@@ -161,19 +160,20 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
         StringBuilder statisticBuilder = new StringBuilder();
         statisticBuilder.append(globalAverageMeter.getStatisticString());
-        for (int i = 0; i < writeRPCMessageHandlers.length/2; i++) {
+        for (int i = 0; i < writeRPCMessageHandlers.length / 2; i++) {
 
             statisticBuilder.append(String.format("Thread %d\n", i));
             statisticBuilder.append(writeRPCMessageHandlers[i].averageMeter.getStatisticString()).append('\n');
         }
 
         throw new Exception(statisticBuilder.toString());
+//        System.out.println(statisticBuilder.toString());
 
     }
 
     private void computeRange3Result() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(CORE_THREAD_NUM);
-        String[] keyList = range3Result.keySet().toArray(new String[0]);
+        String[] keyList = writeRPCMessageHandlers[0].range3Result.keySet().toArray(new String[0]);
         computeIdx.set(0);
         for (int i = 0; i < CORE_THREAD_NUM; i++) {
             range23ComputePool.execute(() -> {
@@ -182,11 +182,26 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
                 while (workIndex < keyList.length) {
                     String workKey = keyList[workIndex];
-
-                    ConcurrentHashMap<Integer, SuccessRate> minuteSuccessRate = range3Result.get(workKey);
+                    HashMap<Integer, SuccessRate> mergedResult = new HashMap<>();
+                    // MERGE RESULT FROM EACH THREAD
+                    for (int j = 0; j < CORE_THREAD_NUM; j++) {
+                        BuildRPCMessageHandler handle = writeRPCMessageHandlers[j];
+                        HashMap<Integer, SuccessRate> minuteSuccessRate = handle.getRange3Rate(workKey);
+                        if (minuteSuccessRate == null) {
+                            continue;
+                        }
+                        for (Entry<Integer, SuccessRate> entry :
+                                minuteSuccessRate.entrySet()) {
+                            if (mergedResult.containsKey(entry.getKey())) {
+                                mergedResult.get(entry.getKey()).mergeSuccessRate(entry.getValue());
+                            } else {
+                                mergedResult.put(entry.getKey(), entry.getValue());
+                            }
+                        }
+                    }
                     ArrayList<Range3Result> currentKeyResults = new ArrayList<>();
                     for (Entry<Integer, SuccessRate> entry :
-                            minuteSuccessRate.entrySet()) {
+                            mergedResult.entrySet()) {
                         int minuteTimeStamp = entry.getKey();
                         String dateTimeStamp = simpleDateFormat.format(new Date(minuteTimeStamp * 60000L));
                         SuccessRate successRate = entry.getValue();
