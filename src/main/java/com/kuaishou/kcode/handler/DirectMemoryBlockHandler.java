@@ -30,7 +30,7 @@ public class DirectMemoryBlockHandler implements Callable<MappedByteBuffer>{
 //		System.out.println(String.format("start pos:%d, length:%d", startPosition, length));
 		try {
 			block = fileChannel.map(FileChannel.MapMode.READ_ONLY, startPosition, length);
-			kcode.setNextBlock(block);
+//			kcode.setNextBlock(block);
 		}catch (Exception e) {
 			e.printStackTrace();
 		}

@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
-    public static final long BLOCK_SIZE = Integer.MAX_VALUE;
+    public static final long BLOCK_SIZE = 1000*1024*1024;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
@@ -86,6 +86,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
                 System.out.println(String.format("Read block %d", currentBlock));
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
+                mappedByteBuffer.load();
+                System.out.println(String.format("Load block %d/%d", currentBlock, maxBlockSize));
 
                 int lastLR = mapSize - 1;
                 while (mappedByteBuffer.get(lastLR) != '\n') {
