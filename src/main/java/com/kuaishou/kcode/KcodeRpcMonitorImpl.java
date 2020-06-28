@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
-    private static final long BLOCK_SIZE = Integer.MAX_VALUE;
+    private static final long BLOCK_SIZE = 1000*1024*1024;
     private static final int TOTAL_THREAD_NUM = 8;
     private static final int READ_THREAD_NUM = 1;
     private static final int MERGE_THREAD_NUM = 1;
@@ -90,7 +90,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             int mapSize;
             mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
             MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
-
+            mappedByteBuffer.load();
+            System.out.println(String.format("Load block %d/%d %b", currentBlock, maxBlockSize, mappedByteBuffer.isLoaded()));
             int lastLR = mapSize - 1;
             while (mappedByteBuffer.get(lastLR) != '\n') {
                 lastLR -= 1;
