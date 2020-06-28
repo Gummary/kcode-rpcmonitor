@@ -76,6 +76,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public void prepare(String path) throws Exception {
+        long start = System.currentTimeMillis();
 //        globalAverageMeter.startTimer(PREPARETIMER);
         RandomAccessFile randomAccessFile = null;
         try {
@@ -92,12 +93,12 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             String remindBuffer = "";
             // 分块读取文件
             for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
-                System.out.println("Read block " + currentBlock);
+//                System.out.println("Read block " + currentBlock);
                 int mapSize;
                 mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
                 mappedByteBuffer.load();
-                System.out.println("Load block " + currentBlock + " " + mappedByteBuffer.isLoaded());
+//                System.out.println("Load block " + currentBlock + " " + mappedByteBuffer.isLoaded());
                 int lastLR = mapSize - 1;
                 while (mappedByteBuffer.get(lastLR) != '\n') {
                     lastLR -= 1;
@@ -132,9 +133,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             rpcMessageHandlerPool.shutdown();
             rpcMessageHandlerPool.awaitTermination(10, TimeUnit.SECONDS);
 
-            computedRange2Result = new HashMap[range2MessageMap.size()];
-            computeRange2Result();
-            computeRange3Result();
+//            computedRange2Result = new HashMap[range2MessageMap.size()];
+//            computeRange2Result();
+//            computeRange3Result();
 
 
         } catch (InterruptedException | IOException ignored) {
@@ -150,6 +151,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				}
 			}
         }
+        throw new Exception(String.format("Read and Parse Time %d",System.currentTimeMillis() - start));
 //        String prepareStatistic = globalAverageMeter.getStatisticString();
 //        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
 //        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
