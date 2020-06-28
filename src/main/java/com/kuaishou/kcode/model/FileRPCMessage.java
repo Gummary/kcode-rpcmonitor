@@ -1,5 +1,6 @@
 package com.kuaishou.kcode.model;
 
+@Deprecated
 public class FileRPCMessage implements Comparable<FileRPCMessage>{
 	public int useTime;
 	public String message;

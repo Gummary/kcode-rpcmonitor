@@ -2,7 +2,12 @@ package com.kuaishou.kcode.model;
 
 import java.util.HashMap;
 
+
 public class Range3Result {
+    /*
+    用于记录某个被调函数在某一分钟的前缀和成功率
+     */
+
 
     private class PrefixSumNode {
         private double prefixSumSuccessate;

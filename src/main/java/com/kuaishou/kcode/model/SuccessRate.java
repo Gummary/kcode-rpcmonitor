@@ -6,11 +6,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SuccessRate {
 	public AtomicInteger success = new AtomicInteger();
 	public AtomicInteger total = new AtomicInteger();
-	
+
+	public double getRawSuccessrate() {
+		return (double)success.get() / total.get();
+	}
 	
 	public String computeSuccessRate(DecimalFormat format) {
 //		System.out.println(success.get()+","+total.get());
-		double rate = (double)success.get() / total.get();
+        double rate = getRawSuccessrate();
 		String resultRate = ".00%";
 		if(rate - 0.0d >= 1e-4) {
 			resultRate = format.format(rate * 100) + "%";
