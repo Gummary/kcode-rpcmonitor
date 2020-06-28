@@ -2,6 +2,7 @@ package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.handler.DirectMemoryBlockHandler;
+import com.kuaishou.kcode.model.GlobalAverageMeter;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
 import com.kuaishou.kcode.model.SuccessRate;
@@ -42,12 +43,17 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static DecimalFormat format;
 
 
-    //	private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     //利用线程池优化2,3阶段
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
     private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
     private static final ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>(50000);
+
+
+    // Timer Setting
+//    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+//    private final static String PREPARETIMER = "PREPARE";
+//    private final static String
 
     //TEST
     // 不要修改访问级别

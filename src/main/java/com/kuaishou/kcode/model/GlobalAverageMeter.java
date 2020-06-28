@@ -1,5 +1,8 @@
 package com.kuaishou.kcode.model;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class GlobalAverageMeter {
 
     private class AverageMeter {
@@ -7,6 +10,7 @@ public class GlobalAverageMeter {
         private int n;
         private long val;
         private double average;
+        private boolean isStarted;
 
         private long startTimeStamp = 0;
 
@@ -19,18 +23,24 @@ public class GlobalAverageMeter {
             n = 0;
             val = 0;
             average = 0;
+            isStarted = false;
 
             startTimeStamp = 0L;
         }
 
         public void startTimer() {
-            startTimeStamp = System.currentTimeMillis();
+            isStarted = true;
+            startTimeStamp = System.nanoTime();
         }
 
         public void updateTimer() {
-            long end = System.currentTimeMillis();
+            long end = System.nanoTime();
             Update(end - startTimeStamp);
             startTimeStamp = end;
+        }
+
+        public void UpdateStart() {
+            startTimeStamp = System.nanoTime();
         }
 
         public void Update(long val) {
@@ -39,6 +49,7 @@ public class GlobalAverageMeter {
             average = total / n;
             this.val = val;
         }
+
 
         public double getTotal() {
             return total;
@@ -56,69 +67,66 @@ public class GlobalAverageMeter {
             return average;
         }
 
+        public boolean isStarted() {
+            return isStarted;
+        }
+
         @Override
         public String toString() {
-            return String.format("Average %.3f, Total %d", average, n);
+            return String.format("Average %.5f ms, TotalNumber %d,Total Time %.6f ms", average/1e6, n, total/1e6);
         }
     }
 
-
-    private AverageMeter prepareTotalTime;
-    private AverageMeter stage2Query;
+    private Map<String, AverageMeter> timers ;
 
     public GlobalAverageMeter() {
-        prepareTotalTime = new AverageMeter();
-        stage2Query = new AverageMeter();
+        timers = new HashMap<>();
     }
 
-    public void resetAll() {
-        prepareTotalTime.reset();
-        stage2Query.reset();
+    public void createTimer(String timerName) {
+        timers.putIfAbsent(timerName, new AverageMeter());
     }
 
-    public void resetPrepareTotalTime() {
-        prepareTotalTime.reset();
-    }
-    public void resetStage2Query() {
-        stage2Query.reset();
+    public void resetTimer(String timerName) {
+        timers.get(timerName).reset();
     }
 
-    public void startPrepareTotalTime() {
-        prepareTotalTime.startTimer();
+    public void updateTimer(String timerName) {
+        timers.get(timerName).updateTimer();
     }
 
-    public void startStage2Query() {
-        stage2Query.startTimer();
+    public void startTimer(String timerName) {
+        timers.get(timerName).startTimer();
     }
 
-    public void updatePrepareTotalTime() {
-        prepareTotalTime.updateTimer();
+    public void updateStart(String timerName) {
+        timers.get(timerName).UpdateStart();
     }
 
-    public void updateStage2Query() {
-        stage2Query.updateTimer();
+    public boolean isTimerStarted(String timerName) {
+        return timers.get(timerName).isStarted();
     }
+
+    public String getStatisticString() {
+        String formatString = "%s:%s ";
+        StringBuilder builder = new StringBuilder();
+        for (Map.Entry<String, AverageMeter> entry:
+                timers.entrySet()){
+            builder.append(String.format(formatString, entry.getKey(), entry.getValue().toString()));
+        }
+
+        return builder.toString();
+    }
+
 
     public void getStatistic() throws Exception {
-        StringBuilder builder = new StringBuilder();
-        builder.append("PrepareTotalTime\n");
-        builder.append(prepareTotalTime.toString());
-        builder.append("\nStage2TotalTime\n");
-        builder.append(stage2Query.toString());
 
-        throw new Exception(builder.toString());
+        throw new Exception(getStatisticString());
     }
 
     public void getStatistic(String appendMsg) throws Exception {
-        StringBuilder builder = new StringBuilder();
-        builder.append("PrepareTotalTime\n");
-        builder.append(prepareTotalTime.toString());
-        builder.append("\nStage2TotalTime\n");
-        builder.append(stage2Query.toString());
-        builder.append('\n');
-        builder.append(appendMsg);
 
-        throw new Exception(builder.toString());
+        throw new Exception(getStatisticString()+appendMsg+"\n");
     }
 
 }
