@@ -36,7 +36,7 @@ public class BuildRPCMessageHandler implements Runnable {
 
 
     // TIMER SETTING
-    public final GlobalAverageMeter averageMeter;
+//    public final GlobalAverageMeter averageMeter;
     private final static String PARSEDATATIMER = "PARSEDATATIMER";
     private final static String ADDRESULT2TIMER = "ADDRESULT2TIMER";
     private final static String ADDRESULT3TIMER = "ADDRESULT3TIMER";
@@ -52,18 +52,18 @@ public class BuildRPCMessageHandler implements Runnable {
 //        this.range2MessageMap = new HashMap<>();
         this.range3Result = new HashMap<>();
 
-        averageMeter = new GlobalAverageMeter();
-        averageMeter.createTimer(PARSEDATATIMER);
-        averageMeter.createTimer(ADDRESULT2TIMER);
-        averageMeter.createTimer(ADDRESULT3TIMER);
-        averageMeter.createTimer(RUNTIMER);
-        averageMeter.createTimer(FINDLRTIMER);
+//        averageMeter = new GlobalAverageMeter();
+//        averageMeter.createTimer(PARSEDATATIMER);
+//        averageMeter.createTimer(ADDRESULT2TIMER);
+//        averageMeter.createTimer(ADDRESULT3TIMER);
+//        averageMeter.createTimer(RUNTIMER);
+//        averageMeter.createTimer(FINDLRTIMER);
     }
 
     @Override
     public void run() {
-        averageMeter.updateStart(RUNTIMER);
-        averageMeter.updateStart(FINDLRTIMER);
+//        averageMeter.updateStart(RUNTIMER);
+//        averageMeter.updateStart(FINDLRTIMER);
         byte curByte;
         int messageStart = startIndex;
         StringBuilder builder = new StringBuilder();
@@ -86,7 +86,7 @@ public class BuildRPCMessageHandler implements Runnable {
         }
 
         BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
-        averageMeter.updateTimer(FINDLRTIMER);
+//        averageMeter.updateTimer(FINDLRTIMER);
 
         // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
         while (bufferParser.getOffset() <= endIndex) {
@@ -94,7 +94,7 @@ public class BuildRPCMessageHandler implements Runnable {
         }
         //回调并更新
         kcode.getCurrentIdxAndUpdateIt(this);
-        averageMeter.updateTimer(RUNTIMER);
+//        averageMeter.updateTimer(RUNTIMER);
     }
 
     public HashMap<Integer, SuccessRate> getRange3Rate(String key) {
@@ -121,7 +121,7 @@ public class BuildRPCMessageHandler implements Runnable {
 //        }
 //        threadAverageMeter.updateStart(PARSERTIMER);
 
-        averageMeter.updateStart(PARSEDATATIMER);
+//        averageMeter.updateStart(PARSEDATATIMER);
         String mainService = parser.parseString();
         String mainIP = parser.parseString();
         String calledService = parser.parseString();
@@ -129,7 +129,7 @@ public class BuildRPCMessageHandler implements Runnable {
         boolean isSuccess = parser.parseBoolean();
         int useTime = parser.parseInt();
         int secondTimeStamp = parser.parseMinuteTimeStamp();
-        averageMeter.updateTimer(PARSEDATATIMER);
+//        averageMeter.updateTimer(PARSEDATATIMER);
 
 //        threadAverageMeter.updateTimer(PARSERTIMER);
 
@@ -139,7 +139,7 @@ public class BuildRPCMessageHandler implements Runnable {
     //二阶段统计
     private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
 
-        averageMeter.updateStart(ADDRESULT2TIMER);
+//        averageMeter.updateStart(ADDRESULT2TIMER);
 
         if (cachedMinute != secondTimeStamp) {
             cachedMinute = secondTimeStamp;
@@ -157,9 +157,9 @@ public class BuildRPCMessageHandler implements Runnable {
         Range2Result result = ipResult.get(range2IPKey);
         result.fillMessage(isSuccess, useTime);
 
-        averageMeter.updateTimer(ADDRESULT2TIMER);
-
-        averageMeter.updateStart(ADDRESULT3TIMER);
+//        averageMeter.updateTimer(ADDRESULT2TIMER);
+//
+//        averageMeter.updateStart(ADDRESULT3TIMER);
         //三阶段统计
         range3Result.putIfAbsent(calledService, new HashMap<>());
         HashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
@@ -170,7 +170,7 @@ public class BuildRPCMessageHandler implements Runnable {
             successRate.success.incrementAndGet();
         }
         successRate.total.incrementAndGet();
-        averageMeter.updateTimer(ADDRESULT3TIMER);
+//        averageMeter.updateTimer(ADDRESULT3TIMER);
     }
 
     private String buildString(ByteBuffer buffer, int startIdx, int endIndex) {
