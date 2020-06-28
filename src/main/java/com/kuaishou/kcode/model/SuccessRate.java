@@ -21,4 +21,10 @@ public class SuccessRate {
 //		System.out.println(resultRate);
 		return resultRate;
 	}
+
+	public void mergeSuccessate(SuccessRate other) {
+		success.addAndGet(other.success.get());
+		total.addAndGet(other.total.get());
+	}
+
 }

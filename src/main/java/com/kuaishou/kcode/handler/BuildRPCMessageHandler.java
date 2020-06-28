@@ -1,6 +1,7 @@
 package com.kuaishou.kcode.handler;
 
 import java.nio.MappedByteBuffer;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.kuaishou.kcode.KcodeRpcMonitorImpl;
@@ -20,7 +21,7 @@ public class BuildRPCMessageHandler implements Runnable {
     private int endIndex;
     //    private ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
 //    private ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
-    private LinkedBlockingQueue<Message> messageQueue;
+    private ArrayBlockingQueue<Message> messageQueue;
 
     private KcodeRpcMonitorImpl kcode;
 
@@ -40,7 +41,7 @@ public class BuildRPCMessageHandler implements Runnable {
 //                                  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
 //                                  ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result) {
     public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
-                                  LinkedBlockingQueue<Message> messageQueue){
+                                  ArrayBlockingQueue<Message> messageQueue){
         this.kcode = kcode;
         this.messageQueue = messageQueue;
 //        this.range2MessageMap = range2MessageMap;
@@ -82,10 +83,13 @@ public class BuildRPCMessageHandler implements Runnable {
             buildMessage(bufferParser);
             totalTime += System.nanoTime() - start;
             messageCount += 1;
+            if (messageCount % 1e6 == 0) {
+                System.out.println(String.format("PARSE Average Time %f Total Numer %d",  totalTime / messageCount / 1e6, messageCount));
+            }
             start = System.nanoTime();
         }
 
-        System.out.println(String.format("TotalTime %f Average Time %f Total Numer %d", totalTime/1e6, totalTime/messageCount/1e6, messageCount));
+//        System.out.println(String.format("TotalTime %f Average Time %f Total Numer %d", totalTime/1e6, totalTime/messageCount/1e6, messageCount));
         //回调并更新
         kcode.getCurrentIdxAndUpdateIt(this);
     }
@@ -126,7 +130,11 @@ public class BuildRPCMessageHandler implements Runnable {
 
     private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
 //        System.out.println("Add message");
-//        messageQueue.add(new Message(mainService, calledService, mainIP, calledIP, isSuccess, useTime, secondTimeStamp));
+        try {
+            messageQueue.put(new Message(mainService, calledService, mainIP, calledIP, isSuccess, useTime, secondTimeStamp));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
 
@@ -180,6 +188,9 @@ public class BuildRPCMessageHandler implements Runnable {
     }
 
     public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
+        if(targetBuffer == null && startIndex == -1) {
+            messageQueue.add(new Message("", "", "", "", true, -1, -1));
+        }
         System.out.println(String.format("%d, %d", startIndex, endIndex));
         this.targetBuffer = targetBuffer;
         this.remindBuffer = remindBuffer;

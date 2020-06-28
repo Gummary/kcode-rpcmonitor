@@ -13,9 +13,32 @@ public class Range3ResultCalculator implements Runnable {
     private LinkedBlockingQueue<Range3MessageContainer> range3MessageContainers;
     private HashMap<String, Range3Result> range3Result;
 
+    private int currentTimestamp = -1;
+    private Range3MessageContainer currentContainer;
+
     public Range3ResultCalculator(LinkedBlockingQueue<Range3MessageContainer> range3MessageContainers, HashMap<String, Range3Result> range3Result) {
         this.range3MessageContainers = range3MessageContainers;
         this.range3Result = range3Result;
+    }
+
+    private void calculateResult() {
+        if(currentTimestamp == -1) {
+            return;
+        }
+
+        HashMap<String, SuccessRate> successRateMap = currentContainer.getSuccessRateMap();
+
+        System.out.println("Range 3 got " + currentTimestamp);
+
+        for (Map.Entry<String, SuccessRate> entry :
+                successRateMap.entrySet()) {
+            range3Result.putIfAbsent(entry.getKey(), new Range3Result());
+            Range3Result result = range3Result.get(entry.getKey());
+
+            SuccessRate successRate = entry.getValue();
+            double rate = (double) successRate.success.get() / successRate.total.get();
+            result.addTimeStampSuccessate(currentTimestamp, rate);
+        }
     }
 
 
@@ -41,19 +64,13 @@ public class Range3ResultCalculator implements Runnable {
             }
 
             int timeStamp = container.getMinuteTimeStamp();
-            HashMap<String, SuccessRate> successRateMap = container.getSuccessRateMap();
-
-            System.out.println("Range 3 got " + timeStamp);
-
-            for (Map.Entry<String, SuccessRate> entry :
-                    successRateMap.entrySet()) {
-                range3Result.putIfAbsent(entry.getKey(), new Range3Result());
-                Range3Result result = range3Result.get(entry.getKey());
-
-                SuccessRate successRate = entry.getValue();
-                double rate = (double) successRate.success.get() / successRate.total.get();
-                result.addTimeStampSuccessate(timeStamp, rate);
+            if(timeStamp != currentTimestamp) {
+                calculateResult();
+                currentTimestamp = timeStamp;
+                currentContainer = container;
+                continue;
             }
+            currentContainer.mergeContainer(container);
         }
     }
 }

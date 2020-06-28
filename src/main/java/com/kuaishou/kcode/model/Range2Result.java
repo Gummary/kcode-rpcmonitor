@@ -28,6 +28,13 @@ public class Range2Result {
         this.ansP99 = -1;
     }
 
+    public void mergeResult(Range2Result result) {
+        successRate.success.addAndGet(result.successRate.success.get());
+        successRate.total.addAndGet(result.successRate.total.get());
+        while(!result.queue.isEmpty()) {
+            this.queue.add(result.queue.poll());
+        }
+    }
 
 
     public void fillMessage(boolean isSuccess, int useTime) {

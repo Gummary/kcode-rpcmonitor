@@ -2,6 +2,7 @@ package com.kuaishou.kcode.model;
 
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class Range3MessageContainer {
     private final int minuteTimeStamp;
@@ -29,5 +30,17 @@ public class Range3MessageContainer {
             successRate.success.incrementAndGet();
         }
         successRate.total.incrementAndGet();
+    }
+
+    public void mergeContainer(Range3MessageContainer container) {
+        HashMap<String, SuccessRate> otherSuccessateMap = container.getSuccessRateMap();
+        for (Map.Entry<String, SuccessRate> calledEntry:
+        otherSuccessateMap.entrySet()){
+            if(successRateMap.containsKey(calledEntry.getKey())) {
+                successRateMap.get(calledEntry.getKey()).mergeSuccessate(calledEntry.getValue());
+            } else {
+                successRateMap.put(calledEntry.getKey(), calledEntry.getValue());
+            }
+        }
     }
 }

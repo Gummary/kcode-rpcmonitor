@@ -15,22 +15,19 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     private static final long BLOCK_SIZE = 1000*1024*1024;
     private static final int TOTAL_THREAD_NUM = 8;
     private static final int READ_THREAD_NUM = 1;
-    private static final int MERGE_THREAD_NUM = 1;
+    private static final int MERGE_THREAD_NUM = 2;
     private static final int CAL_THREAD_NUM = 1;
 
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(TOTAL_THREAD_NUM);
     private final LinkedBlockingQueue<BuildRPCMessageHandler> idleRPCMessageHandler;
-    private final LinkedBlockingQueue<Message> messagesQueue;
+    private final ArrayBlockingQueue<Message> messagesQueue;
     private final LinkedBlockingQueue<Range2MessageContainer> range2MessageContainers;
     private final LinkedBlockingQueue<Range3MessageContainer> range3MessageContainers;
 
@@ -38,33 +35,45 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private final HashMap<String, Range3Result> range3ResultMap;
 
     private final BuildRPCMessageHandler rpcMessageHandler;
-    private final MergeHandler mergeHandler;
+    private final MergeHandler[] mergeHandler;
     private final Range2ResultCalculator range2ResultCalculator;
     private final Range3ResultCalculator range3ResultCalculator;
 
     private static DecimalFormat format;
     private static StringBuilder range2KeyBuilder;
+    CountDownLatch latch;
+    private int setLatchTime;
 
     public KcodeRpcMonitorImpl() {
 
+        latch = new CountDownLatch(MERGE_THREAD_NUM);
         format = new DecimalFormat("#.00");
         format.setRoundingMode(RoundingMode.DOWN);
         range2KeyBuilder = new StringBuilder();
 
         idleRPCMessageHandler = new LinkedBlockingQueue<>();
-        messagesQueue = new LinkedBlockingQueue<>();
+        messagesQueue = new ArrayBlockingQueue<Message>(1000);
         range2MessageContainers = new LinkedBlockingQueue<>();
         range3MessageContainers = new LinkedBlockingQueue<>();
 
         range2ResultMap = new HashMap<>();
         range3ResultMap = new HashMap<>();
 
+
         rpcMessageHandler = new BuildRPCMessageHandler(this, messagesQueue);
-        mergeHandler = new MergeHandler(messagesQueue, range2MessageContainers, range3MessageContainers);
+        mergeHandler = new MergeHandler[MERGE_THREAD_NUM];
+        for (int i = 0; i < MERGE_THREAD_NUM; i++) {
+            mergeHandler[i] = new MergeHandler(this, messagesQueue, range2MessageContainers, range3MessageContainers);
+            mergeHandler[i].setLatch(latch);
+        }
+        latch = null;
+        setLatchTime = 0;
+//        mergeHandler = new MergeHandler(messagesQueue, range2MessageContainers, range3MessageContainers);
         range2ResultCalculator = new Range2ResultCalculator(range2MessageContainers, range2ResultMap);
         range3ResultCalculator = new Range3ResultCalculator(range3MessageContainers, range3ResultMap);
 
         idleRPCMessageHandler.add(rpcMessageHandler);
+
     }
 
     @Override
@@ -79,9 +88,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         //存在剩余 -> block数 + 1
         maxBlockSize = fileSize % BLOCK_SIZE == 0 ? maxBlockSize : maxBlockSize + 1;
 
-        rpcMessageHandlerPool.execute(mergeHandler);
-//        rpcMessageHandlerPool.execute(range2ResultCalculator);
-//        rpcMessageHandlerPool.execute(range3ResultCalculator);
+        for (int i = 0; i < MERGE_THREAD_NUM; i++) {
+            rpcMessageHandlerPool.execute(mergeHandler[i]);
+        }
+        rpcMessageHandlerPool.execute(range2ResultCalculator);
+        rpcMessageHandlerPool.execute(range3ResultCalculator);
 
         String remindBuffer = "";
         // 分块读取文件
@@ -110,7 +121,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             remindBuffer = builder.toString();
         }
 
-        messagesQueue.add(new Message("", "", "", "", true, -1, -1));
+        BuildRPCMessageHandler rpcMessageHandler = idleRPCMessageHandler.take();
+        rpcMessageHandler.setNewByteBuff(null, "", -1, -1);
         System.out.println("Read Done");
 
         rpcMessageHandlerPool.shutdown();
@@ -153,4 +165,22 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public void getCurrentIdxAndUpdateIt(BuildRPCMessageHandler buildRPCMessageHandler) {
         idleRPCMessageHandler.add(buildRPCMessageHandler);
     }
+
+
+    public void setMergeLatch(MergeHandler handler) {
+
+        synchronized (this) {
+            setLatchTime += 1;
+            if(latch == null) {
+                latch = new CountDownLatch(MERGE_THREAD_NUM);
+                handler.setLatch(latch);
+            } else {
+                handler.setLatch(latch);
+            }
+            if(setLatchTime == MERGE_THREAD_NUM) {
+                latch = null;
+            }
+        }
+    }
+
 }

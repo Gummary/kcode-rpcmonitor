@@ -19,6 +19,9 @@ public class Range2ResultCalculator implements Runnable {
     private LinkedBlockingQueue<Range2MessageContainer> range2MessageContainerQueue;
     private final StringBuilder resultBuilder = new StringBuilder();
 
+    private int currentTimeStamp = -1;
+    private Range2MessageContainer currentContainer;
+
 
     public Range2ResultCalculator(LinkedBlockingQueue<Range2MessageContainer> queue,
                                   HashMap<Integer, HashMap<String, ArrayList<String>>> range2ResultMap) {
@@ -29,6 +32,41 @@ public class Range2ResultCalculator implements Runnable {
         format.setRoundingMode(RoundingMode.DOWN);
 
     }
+
+    private void calculateResult() {
+
+        if(currentTimeStamp == -1) {
+            return;
+        }
+
+        HashMap<String, HashMap<String, Range2Result>> functionMap = currentContainer.getRange2Map();
+        System.out.println("Range 2 " + currentTimeStamp);
+
+        range2ResultMap.putIfAbsent(currentTimeStamp, new HashMap<>());
+        HashMap<String, ArrayList<String>> timestampMap = range2ResultMap.get(currentTimeStamp);
+
+        for (Map.Entry<String, HashMap<String, Range2Result>> node : functionMap.entrySet()) {
+            // mainService calledService
+            String key = node.getKey();
+            HashMap<String, Range2Result> valueMap = node.getValue();
+            Iterator<Map.Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
+            ArrayList<String> resultList = new ArrayList<>();
+            while (resultIterator.hasNext()) {
+                Range2Result resultNode = resultIterator.next().getValue();
+                resultBuilder.setLength(0);
+                resultBuilder.append(resultNode.mainIP).append(",")
+                        .append(resultNode.calledIP).append(",")
+                        .append(resultNode.computeSuccessRate(format)).append(",")
+                        .append(resultNode.computeP99());
+                resultList.add(resultBuilder.toString());
+            }
+//                        String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
+            timestampMap.put(key, resultList);
+//                        computedRange2Result.put(key + date, resultList);
+        }
+
+    }
+
 
 
     @Override
@@ -44,32 +82,14 @@ public class Range2ResultCalculator implements Runnable {
                 }
 
                 int timeStamp = range2MessageContainer.getMinuteTimeStamp();
-                HashMap<String, HashMap<String, Range2Result>> functionMap = range2MessageContainer.getRange2Map();
-
-                System.out.println("Range 2 got " + timeStamp);
-
-                range2ResultMap.putIfAbsent(timeStamp, new HashMap<>());
-                HashMap<String, ArrayList<String>> timestampMap = range2ResultMap.get(timeStamp);
-
-                for (Map.Entry<String, HashMap<String, Range2Result>> node : functionMap.entrySet()) {
-                    // mainService calledService
-                    String key = node.getKey();
-                    HashMap<String, Range2Result> valueMap = node.getValue();
-                    Iterator<Map.Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
-                    ArrayList<String> resultList = new ArrayList<>();
-                    while (resultIterator.hasNext()) {
-                        Range2Result resultNode = resultIterator.next().getValue();
-                        resultBuilder.setLength(0);
-                        resultBuilder.append(resultNode.mainIP).append(",")
-                                .append(resultNode.calledIP).append(",")
-                                .append(resultNode.computeSuccessRate(format)).append(",")
-                                .append(resultNode.computeP99());
-                        resultList.add(resultBuilder.toString());
-                    }
-//                        String date = DateUtils.minuteTimeStampToDate(workMinuteStamp);
-                    timestampMap.put(key, resultList);
-//                        computedRange2Result.put(key + date, resultList);
+                if(timeStamp != currentTimeStamp) {
+                    calculateResult();
+                    currentTimeStamp = timeStamp;
+                    currentContainer = range2MessageContainer;
+                    continue;
                 }
+                currentContainer.mergeContainer(range2MessageContainer);
+
 
             } catch (InterruptedException e) {
                 e.printStackTrace();
