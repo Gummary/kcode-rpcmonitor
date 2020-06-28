@@ -112,7 +112,7 @@ public class GlobalAverageMeter {
         StringBuilder builder = new StringBuilder();
         for (Map.Entry<String, AverageMeter> entry:
                 timers.entrySet()){
-            builder.append(String.format(formatString, entry.getKey(), entry.getValue().toString()));
+            builder.append(String.format(formatString, entry.getKey(), entry.getValue().toString())).append('\n');
         }
 
         return builder.toString();

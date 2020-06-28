@@ -2,6 +2,7 @@ package com.kuaishou.kcode.handler;
 
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -9,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.kuaishou.kcode.KcodeRpcMonitorImpl;
 import com.kuaishou.kcode.model.FileRPCMessage;
+import com.kuaishou.kcode.model.GlobalAverageMeter;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.SuccessRate;
 import com.kuaishou.kcode.utils.BufferParser;
@@ -32,16 +34,34 @@ public class BuildRPCMessageHandler implements Runnable {
     private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
 
 
+    // TIMER SETTING
+    public final GlobalAverageMeter averageMeter;
+    private final static String PARSEDATATIMER = "PARSEDATATIMER";
+    private final static String ADDRESULT2TIMER = "ADDRESULT2TIMER";
+    private final static String ADDRESULT3TIMER = "ADDRESULT3TIMER";
+    private final static String FINDLRTIMER = "FINDLRTIMER";
+    private final static String RUNTIMER = "RUNTIMER";
+
+
     public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
                                   ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
                                   ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result) {
         this.kcode = kcode;
         this.range2MessageMap = range2MessageMap;
         this.range3Result = range3Result;
+
+        averageMeter = new GlobalAverageMeter();
+        averageMeter.createTimer(PARSEDATATIMER);
+        averageMeter.createTimer(ADDRESULT2TIMER);
+        averageMeter.createTimer(ADDRESULT3TIMER);
+        averageMeter.createTimer(RUNTIMER);
+        averageMeter.createTimer(FINDLRTIMER);
     }
 
     @Override
     public void run() {
+        averageMeter.updateStart(RUNTIMER);
+        averageMeter.updateStart(FINDLRTIMER);
         byte curByte;
         int messageStart = startIndex;
         StringBuilder builder = new StringBuilder();
@@ -64,6 +84,7 @@ public class BuildRPCMessageHandler implements Runnable {
         }
 
         BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
+        averageMeter.updateTimer(FINDLRTIMER);
 
         // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
         while (bufferParser.getOffset() <= endIndex) {
@@ -71,6 +92,7 @@ public class BuildRPCMessageHandler implements Runnable {
         }
         //回调并更新
         kcode.getCurrentIdxAndUpdateIt(this);
+        averageMeter.updateTimer(RUNTIMER);
     }
 
     private void buildStringMessage(String message) {
@@ -93,6 +115,7 @@ public class BuildRPCMessageHandler implements Runnable {
 //        }
 //        threadAverageMeter.updateStart(PARSERTIMER);
 
+        averageMeter.updateStart(PARSEDATATIMER);
         String mainService = parser.parseString();
         String mainIP = parser.parseString();
         String calledService = parser.parseString();
@@ -100,6 +123,7 @@ public class BuildRPCMessageHandler implements Runnable {
         boolean isSuccess = parser.parseBoolean();
         int useTime = parser.parseInt();
         int secondTimeStamp = parser.parseMinuteTimeStamp();
+        averageMeter.updateTimer(PARSEDATATIMER);
 
 //        threadAverageMeter.updateTimer(PARSERTIMER);
 
@@ -108,6 +132,8 @@ public class BuildRPCMessageHandler implements Runnable {
 
     //二阶段统计
     private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
+
+        averageMeter.updateStart(ADDRESULT2TIMER);
 
         if (cachedMinute != secondTimeStamp) {
             cachedMinute = secondTimeStamp;
@@ -125,6 +151,9 @@ public class BuildRPCMessageHandler implements Runnable {
         Range2Result result = ipResult.get(range2IPKey);
         result.fillMessage(isSuccess, useTime);
 
+        averageMeter.updateTimer(ADDRESULT2TIMER);
+
+        averageMeter.updateStart(ADDRESULT3TIMER);
         //三阶段统计
         range3Result.putIfAbsent(calledService, new ConcurrentHashMap<>());
         ConcurrentHashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
@@ -135,6 +164,7 @@ public class BuildRPCMessageHandler implements Runnable {
             successRate.success.incrementAndGet();
         }
         successRate.total.incrementAndGet();
+        averageMeter.updateTimer(ADDRESULT3TIMER);
     }
 
     private String buildString(ByteBuffer buffer, int startIdx, int endIndex) {

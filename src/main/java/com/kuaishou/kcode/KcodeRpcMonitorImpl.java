@@ -51,9 +51,12 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
     // Timer Setting
-//    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
-//    private final static String PREPARETIMER = "PREPARE";
-//    private final static String
+    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
+    private final static String PREPARETIMER = "PREPARE";
+    private final static String CALRANGE2 = "CALRANGE2";
+    private final static String CALRAGNE3 = "CALRAGNE3";
+    private final static String READTIMER = "READTIMER";
+    private final static String PARSERTIMER = "PARSER";
 
     //TEST
     // 不要修改访问级别
@@ -65,12 +68,20 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap, range3Result);
             readyedMessageHandlers.add(writeRPCMessageHandlers[i]);
         }
+
+
+        globalAverageMeter.createTimer(PREPARETIMER);
+        globalAverageMeter.createTimer(CALRANGE2);
+        globalAverageMeter.createTimer(CALRAGNE3);
+        globalAverageMeter.createTimer(READTIMER);
+        globalAverageMeter.createTimer(PARSERTIMER);
+
     }
 
 
     @Override
-    public void prepare(String path) {
-//    	globalAverageMeter.startPrepareTotalTime();
+    public void prepare(String path) throws Exception {
+        globalAverageMeter.updateStart(PREPARETIMER);
         RandomAccessFile randomAccessFile;
         boolean needReadNext = true;
         try {
@@ -88,12 +99,13 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             System.out.println(String.format("Total block %d", maxBlockSize));
             // 分块读取文件
             for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
+                globalAverageMeter.updateStart(READTIMER);
                 int mapSize;
                 mapSize = (int) ((currentBlock == maxBlockSize - 1) ? (fileSize - (maxBlockSize - 1) * BLOCK_SIZE) : BLOCK_SIZE);
-                System.out.println(String.format("Read block %d", currentBlock));
+//                System.out.println(String.format("Read block %d", currentBlock));
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
                 mappedByteBuffer.load();
-                System.out.println(String.format("Load block %d/%d", currentBlock, maxBlockSize));
+//                System.out.println(String.format("Load block %d/%d", currentBlock, maxBlockSize));
 
                 int lastLR = mapSize - 1;
                 while (mappedByteBuffer.get(lastLR) != '\n') {
@@ -102,7 +114,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 // 每个线程读取等量的数据
                 int readSize = mapSize / CORE_THREAD_NUM;
                 int startIndex = 0;
+
                 for (int i = 0; i < CORE_THREAD_NUM; i++) {
+                    globalAverageMeter.updateStart(PARSERTIMER);
                     BuildRPCMessageHandler rpcMessageHandler = readyedMessageHandlers.take();
                     int endIndex = startIndex + readSize;
                     // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
@@ -115,6 +129,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     }
                     startIndex = endIndex;
                     rpcMessageHandlerPool.execute(rpcMessageHandler);
+                    globalAverageMeter.updateTimer(PARSERTIMER);
                 }
                 StringBuilder builder = new StringBuilder();
                 lastLR += 1;
@@ -123,23 +138,37 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     lastLR++;
                 }
                 remindBuffer = builder.toString();
+                globalAverageMeter.updateTimer(READTIMER);
 
             }
 
             rpcMessageHandlerPool.shutdown();
             rpcMessageHandlerPool.awaitTermination(20, TimeUnit.SECONDS);
 
+            globalAverageMeter.updateStart(CALRANGE2);
             computeRange2Result();
+            globalAverageMeter.updateTimer(CALRANGE2);
+            globalAverageMeter.updateStart(CALRAGNE3);
             computeRange3Result();
+            globalAverageMeter.updateTimer(CALRAGNE3);
 
 
         } catch (InterruptedException | IOException ignored) {
         } finally {
             range23ComputePool.shutdown();
-
-//			globalAverageMeter.updatePrepareTotalTime();
-//			globalAverageMeter.startStage2Query();
         }
+        globalAverageMeter.updateTimer(PREPARETIMER);
+
+        StringBuilder statisticBuilder = new StringBuilder();
+        statisticBuilder.append(globalAverageMeter.getStatisticString());
+        for (int i = 0; i < writeRPCMessageHandlers.length/2; i++) {
+
+            statisticBuilder.append(String.format("Thread %d\n", i));
+            statisticBuilder.append(writeRPCMessageHandlers[i].averageMeter.getStatisticString()).append('\n');
+        }
+
+        throw new Exception(statisticBuilder.toString());
+
     }
 
     private void computeRange3Result() throws InterruptedException {
