@@ -11,6 +11,7 @@ import com.kuaishou.kcode.KcodeRpcMonitorImpl;
 import com.kuaishou.kcode.model.FileRPCMessage;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.SuccessRate;
+import com.kuaishou.kcode.utils.BufferParser;
 
 public class BuildRPCMessageHandler implements Runnable {
 
@@ -41,42 +42,33 @@ public class BuildRPCMessageHandler implements Runnable {
 
     @Override
     public void run() {
-        int[] splitIdxList = new int[6];//一条消息有6块
-        int countSpiltIdx = 0;
         byte curByte;
-        int messageStart = 0;
-
+        int messageStart = startIndex;
         StringBuilder builder = new StringBuilder();
+        builder.append(remindBuffer);
         // 处理被截断的第一条数据
-        if (!"".equals(remindBuffer)) {
-            builder.append(remindBuffer);
-            while ((curByte = targetBuffer.get(startIndex)) != '\n') {
-                startIndex += 1;
-                builder.append((char) curByte);
-            }
+        while ((curByte = targetBuffer.get(messageStart)) != '\n') {
+            messageStart += 1;
+            builder.append((char) curByte);
+        }
+        // 第一个batch还要处理上一个block的尾部
+        if (startIndex == 0) {
             String logString = builder.toString();
             buildStringMessage(logString);
-            // 跳过第一条数据的回车
-            startIndex += 1;
         }
-        messageStart = startIndex;
+        // 跳过第一条数据的回车
+        messageStart++;
+        // 右边界向后找回车
+        while (targetBuffer.get(endIndex) != '\n') {
+            endIndex += 1;
+        }
+
+        BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
+
         // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
-        for (int i = startIndex; i <= endIndex; i++) {
-            curByte = targetBuffer.get(i);
-
-            if (curByte == ',') {
-                splitIdxList[countSpiltIdx] = i;
-                countSpiltIdx++;
-            }
-            if (curByte == '\n') {
-
-                buildMessage(targetBuffer, messageStart, splitIdxList);
-
-                messageStart = i + 1;
-                countSpiltIdx = 0;
-            }
+        while (bufferParser.getOffset() <= endIndex) {
+            buildMessage(bufferParser);
         }
-
         //回调并更新
         kcode.getCurrentIdxAndUpdateIt(this);
     }
@@ -87,28 +79,35 @@ public class BuildRPCMessageHandler implements Runnable {
         String mainIP = info[1];
         String calledService = info[2];
         String calledIP = info[3];
-        int isSuccess = info[4].charAt(0) == 't' ? 1 : 0;
+        boolean isSuccess = info[4].charAt(0) == 't';
         int useTime = Integer.parseInt(info[5]);
-        int secondTimeStamp = (int) TimeUnit.MICROSECONDS.toMinutes(Long.parseLong(info[6]));
+        int secondTimeStamp = (int) TimeUnit.MILLISECONDS.toMinutes(Long.parseLong(info[6]));
 
         submitMessage(mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp);
 
     }
 
-    private void buildMessage(ByteBuffer buffer, int messageStartIdx, int[] splitIdxList) {
-        String mainService = buildString(buffer, messageStartIdx, splitIdxList[0]);
-        String mainIP = buildString(buffer, splitIdxList[0] + 1, splitIdxList[1]);
-        String calledService = buildString(buffer, splitIdxList[1] + 1, splitIdxList[2]);
-        String calledIP = buildString(buffer, splitIdxList[2] + 1, splitIdxList[3]);
-        int isSuccess = buildBoolean(buffer, splitIdxList[3] + 1);
-        int useTime = buildInt(buffer, splitIdxList[4] + 1, splitIdxList[5]);
-        int secondTimeStamp = buildMinuteTimeStamp(buffer, splitIdxList[5] + 1);
+    private void buildMessage(BufferParser parser) {
+//        if(!threadAverageMeter.isTimerStarted(PARSERTIMER)) {
+//            threadAverageMeter.startTimer(PARSERTIMER);
+//        }
+//        threadAverageMeter.updateStart(PARSERTIMER);
+
+        String mainService = parser.parseString();
+        String mainIP = parser.parseString();
+        String calledService = parser.parseString();
+        String calledIP = parser.parseString();
+        boolean isSuccess = parser.parseBoolean();
+        int useTime = parser.parseInt();
+        int secondTimeStamp = (int) (parser.parseLong() / 60000);
+
+//        threadAverageMeter.updateTimer(PARSERTIMER);
 
         submitMessage(mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp);
     }
 
     //二阶段统计
-    private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, int isSuccess, int useTime, int secondTimeStamp) {
+    private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
 
         if (cachedMinute != secondTimeStamp) {
             cachedMinute = secondTimeStamp;
@@ -132,7 +131,7 @@ public class BuildRPCMessageHandler implements Runnable {
 
         successRateMap.putIfAbsent(secondTimeStamp, new SuccessRate());
         SuccessRate successRate = successRateMap.get(secondTimeStamp);
-        if (isSuccess > 0) {
+        if (isSuccess) {
             successRate.success.incrementAndGet();
         }
         successRate.total.incrementAndGet();
