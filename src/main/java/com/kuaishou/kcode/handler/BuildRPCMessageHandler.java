@@ -99,7 +99,7 @@ public class BuildRPCMessageHandler implements Runnable {
         String calledIP = parser.parseString();
         boolean isSuccess = parser.parseBoolean();
         int useTime = parser.parseInt();
-        int secondTimeStamp = (int) (parser.parseLong() / 60000);
+        int secondTimeStamp = parser.parseMinuteTimeStamp();
 
 //        threadAverageMeter.updateTimer(PARSERTIMER);
 

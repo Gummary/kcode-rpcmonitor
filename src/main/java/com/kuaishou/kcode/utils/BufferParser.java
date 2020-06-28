@@ -40,12 +40,15 @@ public class BufferParser {
 
     public boolean parseBoolean() {
         byte b = buffer.get(offset);
-        while(buffer.get(offset)!=',') {
-            offset++;
+        if(b == 't') {
+            // skip ure,
+            offset += 5;
+            return true;
+        } else {
+            // skip alse,
+            offset += 6;
+            return false;
         }
-        // skip ","
-        offset++;
-        return b == 't';
     }
 
     public String parseString() {
@@ -59,6 +62,17 @@ public class BufferParser {
         // skip ","
         offset++;
         return builder.toString();
+    }
+
+    public int parseMinuteTimeStamp() {
+        int buildTimeStamp = 0;
+        for (int i = offset; i < offset + 9; i++) {
+            buildTimeStamp *= 10;
+            buildTimeStamp += buffer.get(i) - '0';
+        }
+        // skip millsecond and \n
+        offset += 14;
+        return buildTimeStamp / 6;
     }
 
     public int getOffset() {
