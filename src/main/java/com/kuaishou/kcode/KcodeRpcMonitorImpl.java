@@ -31,7 +31,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public static final long BLOCK_SIZE = 1000 * 1024 * 1024;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
-    public RandomAccessFile rpcDataFile;
     public FileChannel rpcDataFileChannel;
     private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
 //    private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
@@ -147,7 +146,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             }
 
             rpcMessageHandlerPool.shutdown();
-            rpcMessageHandlerPool.awaitTermination(20, TimeUnit.SECONDS);
+            rpcMessageHandlerPool.awaitTermination(10, TimeUnit.SECONDS);
 
 //            globalAverageMeter.updateStart(CALRANGE2);
             computeRange2Result();
@@ -163,7 +162,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         } finally {
             range23ComputePool.shutdownNow();
             rpcMessageHandlerPool.shutdownNow();
-
         }
 //        globalAverageMeter.updateTimer(PREPARETIMER);
 
@@ -319,11 +317,4 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         readyedMessageHandlers.add(writeRPCMessageHandler);
     }
 
-    @Deprecated
-    public void writeMinuteRPCMEssgaeToFile(int Minute) {
-//    	ConcurrentHashMap<String, ConcurrentLinkedQueue<FileRPCMessage>> minuteMap = range2MessageMap.get(Minute);
-//    	if(minuteMap == null) {
-//    		new WriteMessageToFileThread(writeToFileHandlerPool, minuteMap, files, Minute).start();
-//    	}
-    }
 }
