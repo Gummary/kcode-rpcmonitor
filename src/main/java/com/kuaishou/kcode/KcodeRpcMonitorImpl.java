@@ -9,6 +9,7 @@ import com.kuaishou.kcode.model.SuccessRate;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Array;
 import java.math.RoundingMode;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -47,6 +48,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final AtomicInteger computeIdx = new AtomicInteger();
     private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
     private static final ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>(50000);
+    private static final HashMap<String, String> cachedRange3Result = new HashMap<>();
 
 
     // Timer Setting
@@ -275,27 +277,33 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public String checkResponder(String responder, String start, String end) {
 //        globalAverageMeter.getStatistic("Count: "+count);
 
-        ArrayList<Range3Result> results = computedRange3Result.get(responder);
-        if (results == null) {
-            return "-1.00%";
-        }
-        double rate = 0.0d;
-        int count = 0;
-        String result = ".00%";
-        for (Range3Result minuteResult :
-                results) {
-            if (minuteResult.getTimeStamp().compareTo(start) >= 0) {
-                if (minuteResult.getTimeStamp().compareTo(end) > 0) {
-                    break;
+        String cachedKey = responder + start + end;
+        String result = cachedRange3Result.get(cachedKey);
+        if(result == null) {
+            ArrayList<Range3Result> results = computedRange3Result.get(responder);
+            if (results == null) {
+                result = "-1.00%";
+            } else {
+                double rate = 0.0d;
+                int count = 0;
+                for (Range3Result minuteResult :
+                        results) {
+                    if (minuteResult.getTimeStamp().compareTo(start) >= 0) {
+                        if (minuteResult.getTimeStamp().compareTo(end) > 0) {
+                            break;
+                        }
+                        rate += minuteResult.getSuccessRate();
+                        count += 1;
+                    }
                 }
-                rate += minuteResult.getSuccessRate();
-                count += 1;
+                double resultDouble = rate * 100 / count;
+                String resultString = format.format(resultDouble);
+                result = ".00%";
+                if (resultDouble - 0.0d >= 1e-4) {
+                    result = resultString + "%";
+                }
             }
-        }
-        double resultDouble = rate * 100 / count;
-        String resultString = format.format(resultDouble);
-        if (resultDouble - 0.0d >= 1e-4) {
-            result = resultString + "%";
+            cachedRange3Result.put(cachedKey, result);
         }
         return result;
     }
