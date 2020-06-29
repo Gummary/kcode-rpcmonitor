@@ -3,6 +3,7 @@ package com.kuaishou.kcode;
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
+import com.kuaishou.kcode.model.ReadTask;
 import com.kuaishou.kcode.model.SuccessRate;
 
 import java.io.FileInputStream;
@@ -35,6 +36,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private final BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
     private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
 
+    private final LinkedBlockingQueue<ReadTask> readTasks = new LinkedBlockingQueue<>();
+    private CountDownLatch latch;
+
 
     private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     private static DecimalFormat format;
@@ -61,12 +65,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public KcodeRpcMonitorImpl() {
         format = new DecimalFormat("#.00");
         format.setRoundingMode(RoundingMode.DOWN);
+        latch = new CountDownLatch(CORE_THREAD_NUM);
 //        range3Result = new ConcurrentHashMap<>();
         for (int i = 0; i < writeRPCMessageHandlers.length; i++) {
-            writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(this, range2MessageMap);
-            readyedMessageHandlers.add(writeRPCMessageHandlers[i]);
+            writeRPCMessageHandlers[i] = new BuildRPCMessageHandler(range2MessageMap, readTasks, latch);
         }
-
 
 //        globalAverageMeter.createTimer(PREPARETIMER);
 //        globalAverageMeter.createTimer(CALRANGE2);
@@ -82,6 +85,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //        globalAverageMeter.updateStart(PREPARETIMER);
 //        RandomAccessFile randomAccessFile;
         try {
+            for (int i = 0; i < CORE_THREAD_NUM; i++) {
+                rpcMessageHandlerPool.execute(writeRPCMessageHandlers[i]);
+            }
 //            randomAccessFile = new RandomAccessFile(path, "r");
 //            this.rpcDataFile = randomAccessFile;
 //            this.rpcDataFileChannel = randomAccessFile.getChannel();
@@ -118,18 +124,21 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
                 for (int i = 0; i < CORE_THREAD_NUM; i++) {
 //                    globalAverageMeter.updateStart(PARSERTIMER);
-                    BuildRPCMessageHandler rpcMessageHandler = readyedMessageHandlers.take();
                     int endIndex = startIndex + readSize;
                     // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
+
                     if (i == 0) {
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, startIndex, endIndex, String.format("%d %d/%d",currentBlock, i, CORE_THREAD_NUM));
+//                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, startIndex, endIndex, String.format("%d %d/%d",currentBlock, i, CORE_THREAD_NUM));
+                        readTasks.put(new ReadTask(startIndex, endIndex, remindBuffer, mappedByteBuffer));
                     } else if (i == CORE_THREAD_NUM - 1) { // 最后一个线程读取到这一块的醉猴一个回车
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, lastLR, String.format("%d %d/%d", currentBlock, i, CORE_THREAD_NUM));
+//                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, lastLR, String.format("%d %d/%d", currentBlock, i, CORE_THREAD_NUM));
+                        readTasks.put(new ReadTask(startIndex, lastLR, "", mappedByteBuffer));
                     } else {//其他线程都是完整的数据
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, endIndex, String.format("%d %d/%d", currentBlock, i, CORE_THREAD_NUM));
+//                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, endIndex, String.format("%d %d/%d", currentBlock, i, CORE_THREAD_NUM));
+                        readTasks.put(new ReadTask(startIndex, endIndex, "", mappedByteBuffer));
                     }
                     startIndex = endIndex;
-                    rpcMessageHandlerPool.execute(rpcMessageHandler);
+//                    rpcMessageHandlerPool.execute(rpcMessageHandler);
 //                    globalAverageMeter.updateTimer(PARSERTIMER);
                 }
                 StringBuilder builder = new StringBuilder();
@@ -140,16 +149,18 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 }
                 remindBuffer = builder.toString();
 //                globalAverageMeter.updateTimer(READTIMER);
-
             }
 
+            for (int i = 0; i < CORE_THREAD_NUM; i++) {
+                readTasks.put(new ReadTask(-1, -1, null, null));
+            }
+            latch.await();
             rpcMessageHandlerPool.shutdown();
-            rpcMessageHandlerPool.awaitTermination(10, TimeUnit.SECONDS);
 
 //            globalAverageMeter.updateStart(CALRANGE2);
-            System.out.println(String.format("%d Start comput range2", System.currentTimeMillis()));
+//            System.out.println(String.format("%d Start comput range2", System.currentTimeMillis()));
             computeRange2Result();
-            System.out.println(String.format("%d Finish comput range2", System.currentTimeMillis()));
+//            System.out.println(String.format("%d Finish comput range2", System.currentTimeMillis()));
 //            globalAverageMeter.updateTimer(CALRANGE2);
 //            globalAverageMeter.updateStart(CALRAGNE3);
             computeRange3Result();
@@ -264,7 +275,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     @Override
     public List<String> checkPair(String caller, String responder, String time) {
 
-        String range2Key = caller + "-" + responder + time;
+        String range2Key = caller +  responder + time;
         ArrayList<String> result = computedRange2Result.get(range2Key);
 //        globalAverageMeter.updateStage2Query();
         return result == null ? new ArrayList<>() : result;

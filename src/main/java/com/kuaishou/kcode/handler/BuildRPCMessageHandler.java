@@ -5,15 +5,10 @@ import java.nio.MappedByteBuffer;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import com.kuaishou.kcode.KcodeRpcMonitorImpl;
-import com.kuaishou.kcode.model.FileRPCMessage;
-import com.kuaishou.kcode.model.GlobalAverageMeter;
-import com.kuaishou.kcode.model.Range2Result;
-import com.kuaishou.kcode.model.SuccessRate;
+import com.kuaishou.kcode.model.*;
 import com.kuaishou.kcode.utils.BufferParser;
 
 public class BuildRPCMessageHandler implements Runnable {
@@ -43,13 +38,17 @@ public class BuildRPCMessageHandler implements Runnable {
     private final static String FINDLRTIMER = "FINDLRTIMER";
     private final static String RUNTIMER = "RUNTIMER";
 
-    private String blockid ;
+    private LinkedBlockingQueue<ReadTask> readTasks;
+    private CountDownLatch latch;
 
 
-    public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
-                                  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap) {
-        this.kcode = kcode;
+
+    public BuildRPCMessageHandler(ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap,
+                                  LinkedBlockingQueue<ReadTask> readTasks,
+                                  CountDownLatch latch) {
+        this.readTasks = readTasks;
         this.range2MessageMap = range2MessageMap;
+        this.latch = latch;
 //        this.range3Result = range3Result;
 //        this.range2MessageMap = new HashMap<>();
         this.range3Result = new HashMap<>();
@@ -65,42 +64,54 @@ public class BuildRPCMessageHandler implements Runnable {
     @Override
     public void run() {
 
-        System.out.println(String.format("%d: Thread %d get block %s", System.currentTimeMillis(), Thread.currentThread().getId(), blockid));
+        while(true) {
+            try {
+                ReadTask task = readTasks.take();
+                if(task.start == -1 && task.end == -1) {
+                    latch.countDown();
+                    break;
+                }
 
-//        averageMeter.updateStart(RUNTIMER);
-//        averageMeter.updateStart(FINDLRTIMER);
-        byte curByte;
-        int messageStart = startIndex;
-        StringBuilder builder = new StringBuilder();
-        builder.append(remindBuffer);
-        // 处理被截断的第一条数据
-        while ((curByte = targetBuffer.get(messageStart)) != '\n') {
-            messageStart += 1;
-            builder.append((char) curByte);
-        }
-        // 第一个batch还要处理上一个block的尾部
-        if (startIndex == 0) {
-            String logString = builder.toString();
-            buildStringMessage(logString);
-        }
-        // 跳过第一条数据的回车
-        messageStart++;
-        // 右边界向后找回车
-        while (targetBuffer.get(endIndex) != '\n') {
-            endIndex += 1;
-        }
+                startIndex = task.start;
+                endIndex = task.end;
+                remindBuffer = task.remindBuffer;
+                targetBuffer = task.buffer;
+//                System.out.println(String.format("Got task %d %d", startIndex, endIndex));
 
-        BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
+                byte curByte;
+                int messageStart = startIndex;
+                StringBuilder builder = new StringBuilder();
+                builder.append(remindBuffer);
+                // 处理被截断的第一条数据
+                while ((curByte = targetBuffer.get(messageStart)) != '\n') {
+                    messageStart += 1;
+                    builder.append((char) curByte);
+                }
+                // 第一个batch还要处理上一个block的尾部
+                if (startIndex == 0) {
+                    String logString = builder.toString();
+                    buildStringMessage(logString);
+                }
+                // 跳过第一条数据的回车
+                messageStart++;
+                // 右边界向后找回车
+                while (targetBuffer.get(endIndex) != '\n') {
+                    endIndex += 1;
+                }
+
+                BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
 //        averageMeter.updateTimer(FINDLRTIMER);
 
-        // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
-        while (bufferParser.getOffset() <= endIndex) {
-            buildMessage(bufferParser);
+                // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
+                while (bufferParser.getOffset() <= endIndex) {
+                    buildMessage(bufferParser);
+                }
+
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
-        //回调并更新
-        kcode.getCurrentIdxAndUpdateIt(this);
-//        averageMeter.updateTimer(RUNTIMER);
-        System.out.println(String.format("%d: Thread %d finish block %s", System.currentTimeMillis(), Thread.currentThread().getId(), blockid));
     }
 
     public HashMap<Integer, SuccessRate> getRange3Rate(String key) {
@@ -153,12 +164,12 @@ public class BuildRPCMessageHandler implements Runnable {
             cachedMap = range2MessageMap.get(secondTimeStamp);
         }
 
-        String range2Key = mainService + '-' + calledService;
+        String range2Key = mainService + calledService;
         cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>(5000));
         ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
 
 
-        String range2IPKey = mainIP + '-' + calledIP;
+        String range2IPKey = mainIP + calledIP;
         ipResult.putIfAbsent(range2IPKey, new Range2Result(mainIP, calledIP));
         Range2Result result = ipResult.get(range2IPKey);
         result.fillMessage(isSuccess, useTime);
@@ -222,11 +233,10 @@ public class BuildRPCMessageHandler implements Runnable {
     }
 
 
-    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex, String blockid) {
+    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
         this.targetBuffer = targetBuffer;
         this.remindBuffer = remindBuffer;
         this.startIndex = startIndex;
         this.endIndex = endIndex;
-        this.blockid = blockid;
     }
 }
