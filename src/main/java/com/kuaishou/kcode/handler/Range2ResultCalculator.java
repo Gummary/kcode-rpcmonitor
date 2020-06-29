@@ -77,7 +77,9 @@ public class Range2ResultCalculator implements Runnable {
 
                 if(range2MessageContainer.getMinuteTimeStamp() == -1 &&
                         range2MessageContainer.getRange2Map().size() == 0) {  // no more data
-                    System.out.println("Range2 done");
+                    System.out.println(String.format("%d :Range2Got last block", System.currentTimeMillis()));
+                    calculateResult();
+                    System.out.println(String.format("%d Range2 done", System.currentTimeMillis()));
                     break;
                 }
 

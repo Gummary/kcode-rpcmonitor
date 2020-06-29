@@ -78,15 +78,15 @@ public class BuildRPCMessageHandler implements Runnable {
         BufferParser bufferParser = new BufferParser(messageStart, targetBuffer);
 
         // main传进来的endIndex包含当前block的回车，而需要用回车判断数据的结束，所以是<=
-        long start = System.nanoTime();
+//        long start = System.nanoTime();
         while (bufferParser.getOffset() <= endIndex) {
             buildMessage(bufferParser);
-            totalTime += System.nanoTime() - start;
-            messageCount += 1;
-            if (messageCount % 1e6 == 0) {
-                System.out.println(String.format("PARSE Average Time %f Total Numer %d",  totalTime / messageCount / 1e6, messageCount));
-            }
-            start = System.nanoTime();
+//            totalTime += System.nanoTime() - start;
+//            messageCount += 1;
+//            if (messageCount % 1e6 == 0) {
+//                System.out.println(String.format("PARSE Average Time %f Total Numer %d",  totalTime / messageCount / 1e6, messageCount));
+//            }
+//            start = System.nanoTime();
         }
 
 //        System.out.println(String.format("TotalTime %f Average Time %f Total Numer %d", totalTime/1e6, totalTime/messageCount/1e6, messageCount));

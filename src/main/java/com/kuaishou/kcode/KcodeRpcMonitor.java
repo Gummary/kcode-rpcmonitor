@@ -30,5 +30,5 @@ public interface KcodeRpcMonitor {
      * @param end 需要查询区间的结束时间（分钟），格式 yyyy-MM-dd hh:mm
      * @return 返回在start，end区间内responder作为被调的平均成功率
      */
-    String checkResponder(String responder, String start, String end) throws Exception;
+    String checkResponder(String responder, String start, String end) ;
 }

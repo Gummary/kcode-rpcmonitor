@@ -55,11 +55,13 @@ public class Range3ResultCalculator implements Runnable {
             assert container != null;
             if(container.getMinuteTimeStamp() == -1 &&
                     container.getSuccessRateMap().size() == 0) { // no more data
+                System.out.println(String.format("%d Got Last block", System.currentTimeMillis()));
+                calculateResult();
                 for (Range3Result result :
                         range3Result.values()) {
                     result.calculatePrefixSum();
                 }
-                System.out.println("Range3 done");
+                System.out.println(String.format("%d :Range3 done", System.currentTimeMillis()));
                 break;
             }
 

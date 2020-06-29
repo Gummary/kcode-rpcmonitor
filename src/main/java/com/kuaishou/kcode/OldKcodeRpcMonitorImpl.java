@@ -253,7 +253,7 @@ public class OldKcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
     @Override
-    public String checkResponder(String responder, String start, String end) throws Exception {
+    public String checkResponder(String responder, String start, String end) {
 
 //        if (!globalAverageMeter.isTimerStarted(RANGE3TIMER)) {
 //        	globalAverageMeter.updateTimer(RANGE2TIMER);

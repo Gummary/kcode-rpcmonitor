@@ -147,7 +147,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     }
 
     @Override
-    public String checkResponder(String responder, String start, String end) throws Exception {
+    public String checkResponder(String responder, String start, String end) {
         Range3Result range3Result = range3ResultMap.get(responder);
         String resultString = ".00%";
         if (range3Result == null) {

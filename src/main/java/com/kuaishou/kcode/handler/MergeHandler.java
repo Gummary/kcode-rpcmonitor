@@ -50,8 +50,8 @@ public class MergeHandler implements Runnable {
         long count = 0;
         while (true) {
             try {
-                start = System.nanoTime();
-                count++;
+//                start = System.nanoTime();
+//                count++;
                 Message msg = messageQueue.take();
 //                System.out.println("Got message");
 
@@ -80,11 +80,11 @@ public class MergeHandler implements Runnable {
                 }
                 currentRange2MessageContainer.addMessage(msg);
                 currentRange3MessageContainer.addMessage(msg);
-                totalTime += System.nanoTime() - start;
-                if (count % 1e6 == 0) {
-
-                    System.out.println(String.format("MERGE Average Time %f Total Numer %d",  totalTime / count / 1e6, count));
-                }
+//                totalTime += System.nanoTime() - start;
+//                if (count % 1e6 == 0) {
+//
+//                    System.out.println(String.format("MERGE Average Time %f Total Numer %d",  totalTime / count / 1e6, count));
+//                }
 
             } catch (InterruptedException e) {
                 e.printStackTrace();
