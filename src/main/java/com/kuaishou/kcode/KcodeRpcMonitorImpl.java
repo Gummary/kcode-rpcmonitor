@@ -6,6 +6,7 @@ import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
 import com.kuaishou.kcode.model.SuccessRate;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.math.RoundingMode;
@@ -29,7 +30,6 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public static final long BLOCK_SIZE = 1000 * 1024 * 1024;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
-    private static final ExecutorService blockHandlerPool = Executors.newSingleThreadExecutor();
     public RandomAccessFile rpcDataFile;
     public FileChannel rpcDataFileChannel;
     private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
@@ -79,15 +79,18 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
     @Override
-    public void prepare(String path) throws Exception {
+    public void prepare(String path) {
 //        globalAverageMeter.updateStart(PREPARETIMER);
-        RandomAccessFile randomAccessFile;
-        boolean needReadNext = true;
+//        RandomAccessFile randomAccessFile;
         try {
-            randomAccessFile = new RandomAccessFile(path, "r");
-            this.rpcDataFile = randomAccessFile;
-            this.rpcDataFileChannel = randomAccessFile.getChannel();
-            long fileSize = randomAccessFile.length();
+//            randomAccessFile = new RandomAccessFile(path, "r");
+//            this.rpcDataFile = randomAccessFile;
+//            this.rpcDataFileChannel = randomAccessFile.getChannel();
+//            long fileSize = randomAccessFile.length();
+            FileInputStream fileInputStream = new FileInputStream(path);
+            FileChannel fileChannel = fileInputStream.getChannel();
+            rpcDataFileChannel = fileChannel;
+            long fileSize = fileChannel.size();
 //			System.out.println(String.format("file length:%d", fileSize));
             //下取整
             int maxBlockSize = (int) (fileSize / BLOCK_SIZE);
@@ -95,7 +98,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             maxBlockSize = fileSize % BLOCK_SIZE == 0 ? maxBlockSize : maxBlockSize + 1;
 
             String remindBuffer = "";
-            System.out.println(String.format("Total block %d", maxBlockSize));
+//            System.out.println(String.format("Total block %d", maxBlockSize));
             // 分块读取文件
             for (int currentBlock = 0; currentBlock < maxBlockSize; currentBlock++) {
 //                globalAverageMeter.updateStart(READTIMER);
@@ -151,10 +154,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             computeRange3Result();
 //            globalAverageMeter.updateTimer(CALRAGNE3);
 
+//            randomAccessFile.close();
+            fileInputStream.close();
 
         } catch (InterruptedException | IOException ignored) {
         } finally {
-            range23ComputePool.shutdown();
+            range23ComputePool.shutdownNow();
+            rpcMessageHandlerPool.shutdownNow();
+
         }
 //        globalAverageMeter.updateTimer(PREPARETIMER);
 
@@ -265,7 +272,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
     @Override
-    public String checkResponder(String responder, String start, String end) throws Exception {
+    public String checkResponder(String responder, String start, String end) {
 //        globalAverageMeter.getStatistic("Count: "+count);
 
         ArrayList<Range3Result> results = computedRange3Result.get(responder);
