@@ -1,15 +1,12 @@
 package com.kuaishou.kcode;
 
 import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
-import com.kuaishou.kcode.model.GlobalAverageMeter;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
 import com.kuaishou.kcode.model.SuccessRate;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.lang.reflect.Array;
 import java.math.RoundingMode;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -28,7 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
-    public static final long BLOCK_SIZE = 1000 * 1024 * 1024;
+//    public static final long BLOCK_SIZE = 1000 * 1024 * 1024;
+    public static final long BLOCK_SIZE = Integer.MAX_VALUE;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     public FileChannel rpcDataFileChannel;
@@ -108,7 +106,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //                System.out.println(String.format("Read block %d", currentBlock));
                 MappedByteBuffer mappedByteBuffer = rpcDataFileChannel.map(FileChannel.MapMode.READ_ONLY, currentBlock * BLOCK_SIZE, mapSize);
                 mappedByteBuffer.load();
-//                System.out.println(String.format("Load block %d/%d", currentBlock, maxBlockSize));
+//                System.out.println(String.format("%d: Load block %d/%d", System.currentTimeMillis(), currentBlock, maxBlockSize));
 
                 int lastLR = mapSize - 1;
                 while (mappedByteBuffer.get(lastLR) != '\n') {
@@ -124,11 +122,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     int endIndex = startIndex + readSize;
                     // 对于第一个线程，可能要读取上一个BLOCK剩下的部分
                     if (i == 0) {
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, startIndex, endIndex);
+                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, remindBuffer, startIndex, endIndex, String.format("%d %d/%d",currentBlock, i, CORE_THREAD_NUM));
                     } else if (i == CORE_THREAD_NUM - 1) { // 最后一个线程读取到这一块的醉猴一个回车
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, lastLR);
+                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, lastLR, String.format("%d %d/%d", currentBlock, i, CORE_THREAD_NUM));
                     } else {//其他线程都是完整的数据
-                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, endIndex);
+                        rpcMessageHandler.setNewByteBuff(mappedByteBuffer, "", startIndex, endIndex, String.format("%d %d/%d", currentBlock, i, CORE_THREAD_NUM));
                     }
                     startIndex = endIndex;
                     rpcMessageHandlerPool.execute(rpcMessageHandler);
@@ -149,7 +147,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             rpcMessageHandlerPool.awaitTermination(10, TimeUnit.SECONDS);
 
 //            globalAverageMeter.updateStart(CALRANGE2);
+            System.out.println(String.format("%d Start comput range2", System.currentTimeMillis()));
             computeRange2Result();
+            System.out.println(String.format("%d Finish comput range2", System.currentTimeMillis()));
 //            globalAverageMeter.updateTimer(CALRANGE2);
 //            globalAverageMeter.updateStart(CALRAGNE3);
             computeRange3Result();

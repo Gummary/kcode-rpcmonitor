@@ -36,12 +36,14 @@ public class BuildRPCMessageHandler implements Runnable {
 
 
     // TIMER SETTING
-//    public final GlobalAverageMeter averageMeter;
+    public final GlobalAverageMeter averageMeter = new GlobalAverageMeter();
     private final static String PARSEDATATIMER = "PARSEDATATIMER";
     private final static String ADDRESULT2TIMER = "ADDRESULT2TIMER";
     private final static String ADDRESULT3TIMER = "ADDRESULT3TIMER";
     private final static String FINDLRTIMER = "FINDLRTIMER";
     private final static String RUNTIMER = "RUNTIMER";
+
+    private String blockid ;
 
 
     public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
@@ -62,6 +64,9 @@ public class BuildRPCMessageHandler implements Runnable {
 
     @Override
     public void run() {
+
+        System.out.println(String.format("%d: Thread %d get block %s", System.currentTimeMillis(), Thread.currentThread().getId(), blockid));
+
 //        averageMeter.updateStart(RUNTIMER);
 //        averageMeter.updateStart(FINDLRTIMER);
         byte curByte;
@@ -95,6 +100,7 @@ public class BuildRPCMessageHandler implements Runnable {
         //回调并更新
         kcode.getCurrentIdxAndUpdateIt(this);
 //        averageMeter.updateTimer(RUNTIMER);
+        System.out.println(String.format("%d: Thread %d finish block %s", System.currentTimeMillis(), Thread.currentThread().getId(), blockid));
     }
 
     public HashMap<Integer, SuccessRate> getRange3Rate(String key) {
@@ -216,10 +222,11 @@ public class BuildRPCMessageHandler implements Runnable {
     }
 
 
-    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
+    public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex, String blockid) {
         this.targetBuffer = targetBuffer;
         this.remindBuffer = remindBuffer;
         this.startIndex = startIndex;
         this.endIndex = endIndex;
+        this.blockid = blockid;
     }
 }
