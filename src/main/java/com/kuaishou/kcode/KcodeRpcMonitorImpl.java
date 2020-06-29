@@ -32,7 +32,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
     public FileChannel rpcDataFileChannel;
-    private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap = new ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>>();
+    private final ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<Long, Range2Result>>> range2MessageMap = new ConcurrentHashMap<>();
 //    private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, SuccessRate>> range3Result;
     private final BuildRPCMessageHandler[] writeRPCMessageHandlers = new BuildRPCMessageHandler[CORE_THREAD_NUM];
     private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
@@ -236,11 +236,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                 int workIndex = computeIdx.getAndIncrement();
                 while (workIndex < keyList.length) {
                     int workMinuteStamp = keyList[workIndex];
-                    ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
-                    for (Entry<String, ConcurrentHashMap<String, Range2Result>> node : functionMap.entrySet()) {
+                    ConcurrentHashMap<String, ConcurrentHashMap<Long, Range2Result>> functionMap = range2MessageMap.get(workMinuteStamp);
+                    for (Entry<String, ConcurrentHashMap<Long, Range2Result>> node : functionMap.entrySet()) {
                         String key = node.getKey();
-                        ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
-                        Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
+                        ConcurrentHashMap<Long, Range2Result> valueMap = node.getValue();
+                        Iterator<Entry<Long, Range2Result>> resultIterator = valueMap.entrySet().iterator();
                         ArrayList<String> resultList = new ArrayList<>();
                         while (resultIterator.hasNext()) {
                             Range2Result resultNnode = resultIterator.next().getValue();

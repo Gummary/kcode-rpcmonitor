@@ -75,6 +75,10 @@ public class BufferParser {
         return buildTimeStamp / 6;
     }
 
+    public long parseIP() {
+        return parseLong() << 24 | parseInt() << 16 | parseInt() << 8 | parseInt();
+    }
+
     public int getOffset() {
         return offset;
     }

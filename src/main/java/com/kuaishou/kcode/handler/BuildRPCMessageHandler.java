@@ -24,7 +24,7 @@ public class BuildRPCMessageHandler implements Runnable {
     private int startIndex;
     private int endIndex;
     public HashMap<String, HashMap<Integer, SuccessRate>> range3Result;
-    public ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap;
+    public ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<Long, Range2Result>>> range2MessageMap;
 
 
     private String remindBuffer = "";
@@ -32,7 +32,7 @@ public class BuildRPCMessageHandler implements Runnable {
      * 因为一个batch中数据基本为同一个分钟时间戳，所以做个缓存
      */
     private int cachedMinute = -1;
-    private ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>> cachedMap;
+    private ConcurrentHashMap<String, ConcurrentHashMap<Long, Range2Result>> cachedMap;
 
 
     // TIMER SETTING
@@ -45,7 +45,7 @@ public class BuildRPCMessageHandler implements Runnable {
 
 
     public BuildRPCMessageHandler(KcodeRpcMonitorImpl kcode,
-                                  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<String, Range2Result>>> range2MessageMap) {
+                                  ConcurrentHashMap<Integer, ConcurrentHashMap<String, ConcurrentHashMap<Long, Range2Result>>> range2MessageMap) {
         this.kcode = kcode;
         this.range2MessageMap = range2MessageMap;
 //        this.range3Result = range3Result;
@@ -115,6 +115,29 @@ public class BuildRPCMessageHandler implements Runnable {
 
     }
 
+    public long ipToLong(String ipAddress) {
+
+        long result = 0;
+
+        String[] ipAddressInArray = ipAddress.split("\\.");
+
+        for (int i = 3; i >= 0; i--) {
+
+            long ip = Long.parseLong(ipAddressInArray[3 - i]);
+
+            //left shifting 24,16,8,0 and bitwise OR
+
+            //1. 192 << 24
+            //1. 168 << 16
+            //1. 1   << 8
+            //1. 2   << 0
+            result |= ip << (i * 8);
+
+        }
+
+        return result;
+    }
+
     private void buildMessage(BufferParser parser) {
 //        if(!threadAverageMeter.isTimerStarted(PARSERTIMER)) {
 //            threadAverageMeter.startTimer(PARSERTIMER);
@@ -149,10 +172,10 @@ public class BuildRPCMessageHandler implements Runnable {
 
         String range2Key = mainService + '-' + calledService;
         cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>());
-        ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
+        ConcurrentHashMap<Long, Range2Result> ipResult = cachedMap.get(range2Key);
 
 
-        String range2IPKey = mainIP + '-' + calledIP;
+        long range2IPKey = ipToLong(mainIP) ^ ipToLong(calledIP);
         ipResult.putIfAbsent(range2IPKey, new Range2Result(mainIP, calledIP));
         Range2Result result = ipResult.get(range2IPKey);
         result.fillMessage(isSuccess, useTime);
@@ -172,49 +195,6 @@ public class BuildRPCMessageHandler implements Runnable {
         successRate.total.incrementAndGet();
 //        averageMeter.updateTimer(ADDRESULT3TIMER);
     }
-
-    private String buildString(ByteBuffer buffer, int startIdx, int endIndex) {
-        StringBuilder builder = new StringBuilder();
-        for (int i = startIdx; i < endIndex; i++) {
-            builder.append((char) buffer.get(i));
-        }
-        return builder.toString();
-    }
-
-    private int buildInt(ByteBuffer buffer, int startIdx, int endIndex) {
-        int buildInt = 0;
-        for (int i = startIdx; i < endIndex; i++) {
-            buildInt *= 10;
-            buildInt += buffer.get(i) - '0';
-
-        }
-        return buildInt;
-    }
-
-    private int buildBoolean(ByteBuffer buffer, int startIdx) {
-        byte curByte = buffer.get(startIdx);
-        if (curByte == 't') {
-            return 1;
-        } else {
-            return 0;
-        }
-    }
-
-    /**
-     * 返回秒级时间戳除以60的结果
-     *
-     * @param startIdx
-     * @return
-     */
-    private int buildMinuteTimeStamp(ByteBuffer buffer, int startIdx) {
-        int buildTimeStamp = 0;
-        for (int i = startIdx; i < startIdx + 9; i++) {
-            buildTimeStamp *= 10;
-            buildTimeStamp += buffer.get(i) - '0';
-        }
-        return buildTimeStamp / 6;
-    }
-
 
     public void setNewByteBuff(MappedByteBuffer targetBuffer, String remindBuffer, int startIndex, int endIndex) {
         this.targetBuffer = targetBuffer;
