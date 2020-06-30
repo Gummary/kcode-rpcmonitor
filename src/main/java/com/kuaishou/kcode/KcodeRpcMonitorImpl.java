@@ -49,6 +49,8 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(512);
     private static final StringBuilder range2KeyBuilder = new StringBuilder();
 
+    private static HashMap<String, String> cachedRange3Result = new HashMap<>();
+
     // Timer Setting
 //    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
     private static final String PREPARETIMER = "PREPARE";
@@ -133,9 +135,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             rpcMessageHandlerPool.shutdown();
             rpcMessageHandlerPool.awaitTermination(10, TimeUnit.SECONDS);
 
-//            computedRange2Result = new HashMap[range2MessageMap.size()];
-//            computeRange2Result();
-//            computeRange3Result();
+            computedRange2Result = new HashMap[range2MessageMap.size()];
+            computeRange2Result();
+            computeRange3Result();
 
 
         } catch (InterruptedException | IOException ignored) {
@@ -151,7 +153,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 				}
 			}
         }
-        throw new Exception(String.format("Read and Parse Time %d",System.currentTimeMillis() - start));
+//        throw new Exception(String.format("Read and Parse Time %d",System.currentTimeMillis() - start));
 //        String prepareStatistic = globalAverageMeter.getStatisticString();
 //        String thread0Statistic = writeRPCMessageHandlers[0].threadAverageMeter.getStatisticString();
 //        throw new Exception(String.format("%s %s", prepareStatistic, thread0Statistic));
@@ -254,13 +256,19 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
 
     @Override
-    public String checkResponder(String responder, String start, String end) throws Exception {
+    public String checkResponder(String responder, String start, String end) {
 
 //        if (!globalAverageMeter.isTimerStarted(RANGE3TIMER)) {
 //        	globalAverageMeter.updateTimer(RANGE2TIMER);
 //            globalAverageMeter.startTimer(RANGE3TIMER);
 //            range3CalledTime = 0;
 //        }
+
+        String key = responder+start+end;
+        String ret = cachedRange3Result.get(key);
+        if(ret!=null) {
+            return ret;
+        }
 
         Range3Result range3Result = computedRange3Result.get(responder);
         String resultString = ".00%";
@@ -280,7 +288,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //        	globalAverageMeter.updateTimer(RANGE3TIMER);
 //            globalAverageMeter.getStatistic();
 //        }
-
+        cachedRange3Result.put(key, resultString);
         return resultString;
     }
 

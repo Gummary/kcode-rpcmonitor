@@ -112,11 +112,8 @@ public class BuildRPCMessageHandler implements Runnable {
         submitMessage(mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp);
     }
 
+
     private void submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
-
-    }
-
-    private void _submitMessage(String mainService, String mainIP, String calledService, String calledIP, boolean isSuccess, int useTime, int secondTimeStamp) {
 
 //        System.out.println(String.format("Get new log %s %s %s %s %b %d %d", mainService, mainIP, calledService, calledIP, isSuccess, useTime, secondTimeStamp));
 
