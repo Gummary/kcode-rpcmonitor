@@ -300,6 +300,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
             }
         }
 
+
 //        range3CalledTime++;
 //
 //        if(range3CalledTime >= 3e5) {
