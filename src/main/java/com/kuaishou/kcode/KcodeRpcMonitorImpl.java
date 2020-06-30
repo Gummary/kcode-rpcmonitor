@@ -46,7 +46,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final AtomicInteger computeIdx = new AtomicInteger();
     private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(600000);
     private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(500000);
-    private static final HashMap<String, String> cachedRange3Result = new HashMap<>();
+    private static final HashMap<String, String> cachedRange3Result = new HashMap<>(50000);
 
 
     // Timer Setting
