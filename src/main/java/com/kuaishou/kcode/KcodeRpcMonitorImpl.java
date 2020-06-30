@@ -4,6 +4,7 @@ import com.kuaishou.kcode.handler.BuildRPCMessageHandler;
 import com.kuaishou.kcode.model.Range2Result;
 import com.kuaishou.kcode.model.Range3Result;
 import com.kuaishou.kcode.model.SuccessRate;
+import com.kuaishou.kcode.utils.DateUtils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -44,7 +45,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
     private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
-    private static final ConcurrentHashMap<String, ArrayList<Range3Result>> computedRange3Result = new ConcurrentHashMap<>(50000);
+    private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(50000);
     private static final HashMap<String, String> cachedRange3Result = new HashMap<>();
 
 
@@ -206,17 +207,17 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                             }
                         }
                     }
-                    ArrayList<Range3Result> currentKeyResults = new ArrayList<>();
+                    Range3Result range3Result = new Range3Result();
                     for (Entry<Integer, SuccessRate> entry :
                             mergedResult.entrySet()) {
                         int minuteTimeStamp = entry.getKey();
-                        String dateTimeStamp = simpleDateFormat.format(new Date(minuteTimeStamp * 60000L));
                         SuccessRate successRate = entry.getValue();
                         double rate = (double) successRate.success.get() / successRate.total.get();
-                        currentKeyResults.add(new Range3Result(dateTimeStamp, rate));
+                        range3Result.addTimeStampSuccessate(minuteTimeStamp, rate);
                     }
-                    Collections.sort(currentKeyResults);
-                    computedRange3Result.put(workKey, currentKeyResults);
+                    range3Result.calculatePrefixSum();
+                    computedRange3Result.put(workKey, range3Result);
+
                     workIndex = computeIdx.getAndIncrement();
                 }
                 latch.countDown();
@@ -273,38 +274,42 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     @Override
     public String checkResponder(String responder, String start, String end) {
-//        globalAverageMeter.getStatistic("Count: "+count);
 
-        String cachedKey = responder + start + end;
-        String result = cachedRange3Result.get(cachedKey);
-        if(result == null) {
-            ArrayList<Range3Result> results = computedRange3Result.get(responder);
-            if (results == null) {
-                result = "-1.00%";
-            } else {
-                double rate = 0.0d;
-                int count = 0;
-                for (Range3Result minuteResult :
-                        results) {
-                    if (minuteResult.getTimeStamp().compareTo(start) >= 0) {
-                        if (minuteResult.getTimeStamp().compareTo(end) > 0) {
-                            break;
-                        }
-                        rate += minuteResult.getSuccessRate();
-                        count += 1;
-                    }
-                }
-                double resultDouble = rate * 100 / count;
-                String resultString = format.format(resultDouble);
-                result = ".00%";
-                if (resultDouble - 0.0d >= 1e-4) {
-                    result = resultString + "%";
-                }
-            }
-            cachedRange3Result.put(cachedKey, result);
+//        if (!globalAverageMeter.isTimerStarted(RANGE3TIMER)) {
+//        	globalAverageMeter.updateTimer(RANGE2TIMER);
+//            globalAverageMeter.startTimer(RANGE3TIMER);
+//            range3CalledTime = 0;
+//        }
+
+        String key = responder+start+end;
+        String ret = cachedRange3Result.get(key);
+        if(ret!=null) {
+            return ret;
         }
-        return result;
+
+
+        Range3Result range3Result = computedRange3Result.get(responder);
+        String resultString = ".00%";
+        if (range3Result == null) {
+            resultString = "-1.00%";
+        } else {
+            double resultDouble = range3Result.getResult(DateUtils.DateToMinuteTimeStamp(start), DateUtils.DateToMinuteTimeStamp(end));
+            resultDouble *= 100;
+            if (resultDouble - 0.0d > 1e-4) {
+                resultString = format.format(resultDouble) + "%";
+            }
+        }
+
+//        range3CalledTime++;
+//
+//        if(range3CalledTime >= 3e5) {
+//        	globalAverageMeter.updateTimer(RANGE3TIMER);
+//            globalAverageMeter.getStatistic();
+//        }
+        cachedRange3Result.put(key, resultString);
+        return resultString;
     }
+
 
     /**
      * 当前WriteRPCMessageHandler获得自己的读取任务
