@@ -154,7 +154,7 @@ public class BuildRPCMessageHandler implements Runnable {
         }
 
         String range2Key = mainService + calledService;
-        cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>(5000));
+        cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>(50000));
         ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
 
 
@@ -167,7 +167,7 @@ public class BuildRPCMessageHandler implements Runnable {
 //
 //        averageMeter.updateStart(ADDRESULT3TIMER);
         //三阶段统计
-        range3Result.putIfAbsent(calledService, new HashMap<>());
+        range3Result.putIfAbsent(calledService, new HashMap<>(50000));
         HashMap<Integer, SuccessRate> successRateMap = range3Result.get(calledService);
 
         successRateMap.putIfAbsent(secondTimeStamp, new SuccessRate());
