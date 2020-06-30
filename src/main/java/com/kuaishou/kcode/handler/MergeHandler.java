@@ -13,7 +13,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class MergeHandler implements Runnable {
 
-    private final ArrayBlockingQueue<Message> messageQueue;
+    private final LinkedBlockingQueue<Message> messageQueue;
     private final LinkedBlockingQueue<Range2MessageContainer> range2MessageContainerQueue;
     private LinkedBlockingQueue<Range3MessageContainer> range3MessageContainerQueue;
 
@@ -28,7 +28,7 @@ public class MergeHandler implements Runnable {
     private CountDownLatch latch;
 
     public MergeHandler(KcodeRpcMonitorImpl kcode,
-                        ArrayBlockingQueue<Message> messageQueue,
+                        LinkedBlockingQueue<Message> messageQueue,
                         LinkedBlockingQueue<Range2MessageContainer> messageContainerQueue,
                         LinkedBlockingQueue<Range3MessageContainer> range3MessageContainerQueue) {
 

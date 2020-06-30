@@ -27,7 +27,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(TOTAL_THREAD_NUM);
     private final LinkedBlockingQueue<BuildRPCMessageHandler> idleRPCMessageHandler;
-    private final ArrayBlockingQueue<Message> messagesQueue;
+    private final LinkedBlockingQueue<Message> messagesQueue;
     private final LinkedBlockingQueue<Range2MessageContainer> range2MessageContainers;
     private final LinkedBlockingQueue<Range3MessageContainer> range3MessageContainers;
 
@@ -52,7 +52,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
         range2KeyBuilder = new StringBuilder();
 
         idleRPCMessageHandler = new LinkedBlockingQueue<>();
-        messagesQueue = new ArrayBlockingQueue<Message>(1000);
+        messagesQueue = new LinkedBlockingQueue<>();
         range2MessageContainers = new LinkedBlockingQueue<>();
         range3MessageContainers = new LinkedBlockingQueue<>();
 
