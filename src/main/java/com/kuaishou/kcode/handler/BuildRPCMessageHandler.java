@@ -153,7 +153,7 @@ public class BuildRPCMessageHandler implements Runnable {
             cachedMap = range2MessageMap.get(secondTimeStamp);
         }
 
-        String range2Key = mainService + '-' + calledService;
+        String range2Key = mainService + calledService;
         cachedMap.putIfAbsent(range2Key, new ConcurrentHashMap<>(5000));
         ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
 
