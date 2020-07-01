@@ -245,8 +245,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                         ArrayList<String> resultList = new ArrayList<>();
                         while (resultIterator.hasNext()) {
                             Range2Result resultNnode = resultIterator.next().getValue();
-                            String builder = resultNnode.mainIP + ',' +
-                                    resultNnode.calledIP + ',' +
+                            String builder = resultIterator.next().getKey() + ',' +
                                     resultNnode.computeSuccessRate(format) + ',' +
                                     resultNnode.computeP99();
                             resultList.add(builder);

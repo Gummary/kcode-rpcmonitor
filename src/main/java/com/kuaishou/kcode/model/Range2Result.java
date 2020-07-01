@@ -8,15 +8,11 @@ import java.util.concurrent.PriorityBlockingQueue;
 public class Range2Result {
     public SuccessRate successRate;
     public PriorityBlockingQueue<Integer> queue;
-    public String mainIP;
-    public String calledIP;
     public int ansP99;
 
 
-    public Range2Result(String mainIP, String calledIP) {
+    public Range2Result() {
         super();
-        this.mainIP = mainIP;
-        this.calledIP = calledIP;
         this.queue = new PriorityBlockingQueue<Integer>(200, new Comparator<Integer>() {
 
             @Override

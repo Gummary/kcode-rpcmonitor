@@ -158,8 +158,8 @@ public class BuildRPCMessageHandler implements Runnable {
         ConcurrentHashMap<String, Range2Result> ipResult = cachedMap.get(range2Key);
 
 
-        String range2IPKey = mainIP + '-' + calledIP;
-        ipResult.putIfAbsent(range2IPKey, new Range2Result(mainIP, calledIP));
+        String range2IPKey = mainIP + ',' + calledIP;
+        ipResult.putIfAbsent(range2IPKey, new Range2Result());
         Range2Result result = ipResult.get(range2IPKey);
         result.fillMessage(isSuccess, useTime);
 
