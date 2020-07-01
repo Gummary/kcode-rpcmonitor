@@ -44,9 +44,9 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     //利用线程池优化2,3阶段
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
-    private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
-    private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(500000);
-    private static final HashMap<String, String> cachedRange3Result = new HashMap<>(100000);
+    private static final ConcurrentHashMap<Integer, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
+    private static final ConcurrentHashMap<Integer, Range3Result> computedRange3Result = new ConcurrentHashMap<>(500000);
+    private static final HashMap<Integer, String> cachedRange3Result = new HashMap<>(100000);
 
 
     // Timer Setting
@@ -216,7 +216,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                         range3Result.addTimeStampSuccessate(minuteTimeStamp, rate);
                     }
                     range3Result.calculatePrefixSum();
-                    computedRange3Result.put(workKey, range3Result);
+                    computedRange3Result.put(workKey.hashCode(), range3Result);
 
                     workIndex = computeIdx.getAndIncrement();
                 }
@@ -251,7 +251,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                             resultList.add(builder);
                         }
                         String date = simpleDateFormat.format(new Date(workMinuteStamp * 60000L));
-                        computedRange2Result.put(key + date, resultList);
+                        computedRange2Result.put((key + date).hashCode(), resultList);
                     }
                     workIndex = computeIdx.getAndIncrement();
                 }
@@ -265,7 +265,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     public List<String> checkPair(String caller, String responder, String time) {
 
         String range2Key = caller + responder + time;
-        ArrayList<String> result = computedRange2Result.get(range2Key);
+        ArrayList<String> result = computedRange2Result.get(range2Key.hashCode());
 //        globalAverageMeter.updateStage2Query();
         return result != null ? result : new ArrayList<>();
     }
@@ -280,14 +280,14 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 //            range3CalledTime = 0;
 //        }
 
-        String key = responder+start+end;
+        int key = (responder+start+end).hashCode();
         String ret = cachedRange3Result.get(key);
         if(ret!=null) {
             return ret;
         }
 
 
-        Range3Result range3Result = computedRange3Result.get(responder);
+        Range3Result range3Result = computedRange3Result.get(responder.hashCode());
         String resultString = ".00%";
         if (range3Result == null) {
             resultString = "-1.00%";

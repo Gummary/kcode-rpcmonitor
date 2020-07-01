@@ -219,7 +219,6 @@ public class BuildRPCMessageHandler implements Runnable {
             buildTimeStamp += buffer.get(i) - '0';
         }
         return buildTimeStamp / 6;
-        
     }
 
 
