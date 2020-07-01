@@ -241,11 +241,11 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
                     for (Entry<String, ConcurrentHashMap<String, Range2Result>> node : functionMap.entrySet()) {
                         String key = node.getKey();
                         ConcurrentHashMap<String, Range2Result> valueMap = node.getValue();
-                        Iterator<Entry<String, Range2Result>> resultIterator = valueMap.entrySet().iterator();
                         ArrayList<String> resultList = new ArrayList<>();
-                        while (resultIterator.hasNext()) {
-                            Range2Result resultNnode = resultIterator.next().getValue();
-                            String builder = resultIterator.next().getKey() + ',' +
+                        for(Map.Entry<String, Range2Result> valueEntry :
+                        valueMap.entrySet()){
+                            Range2Result resultNnode = valueEntry.getValue();
+                            String builder = valueEntry.getKey() + ',' +
                                     resultNnode.computeSuccessRate(format) + ',' +
                                     resultNnode.computeP99();
                             resultList.add(builder);
