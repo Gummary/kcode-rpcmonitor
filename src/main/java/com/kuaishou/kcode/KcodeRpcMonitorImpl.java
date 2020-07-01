@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
 
-//    public static final long BLOCK_SIZE = 1000 * 1024 * 1024;
+//    public static final long BLOCK_SIZE = 1024 * 1024 * 1024;
     public static final long BLOCK_SIZE = Integer.MAX_VALUE;
     private static final int CORE_THREAD_NUM = 8;
     private static final ExecutorService rpcMessageHandlerPool = Executors.newFixedThreadPool(CORE_THREAD_NUM);//new ThreadPoolExecutor(CORE_THREAD_NUM, MAX_THREAD_NUM, TIME_OUT, TimeUnit.SECONDS, new SynchronousQueue<>());
@@ -37,7 +37,7 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private final BlockingQueue<BuildRPCMessageHandler> readyedMessageHandlers = new LinkedBlockingQueue<>();
 
 
-    private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+//    private final static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     private static DecimalFormat format;
 
 
@@ -45,17 +45,17 @@ public class KcodeRpcMonitorImpl implements KcodeRpcMonitor {
     private static final ExecutorService range23ComputePool = Executors.newFixedThreadPool(CORE_THREAD_NUM);
     private static final AtomicInteger computeIdx = new AtomicInteger();
     private static final ConcurrentHashMap<String, ArrayList<String>> computedRange2Result = new ConcurrentHashMap<>(500000);
-    private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(50000);
-    private static final HashMap<String, String> cachedRange3Result = new HashMap<>();
+    private static final ConcurrentHashMap<String, Range3Result> computedRange3Result = new ConcurrentHashMap<>(500000);
+    private static final HashMap<String, String> cachedRange3Result = new HashMap<>(100000);
 
 
     // Timer Setting
 //    private static GlobalAverageMeter globalAverageMeter = new GlobalAverageMeter();
-    private final static String PREPARETIMER = "PREPARE";
-    private final static String CALRANGE2 = "CALRANGE2";
-    private final static String CALRAGNE3 = "CALRAGNE3";
-    private final static String READTIMER = "READTIMER";
-    private final static String PARSERTIMER = "PARSER";
+//    private final static String PREPARETIMER = "PREPARE";
+//    private final static String CALRANGE2 = "CALRANGE2";
+//    private final static String CALRAGNE3 = "CALRAGNE3";
+//    private final static String READTIMER = "READTIMER";
+//    private final static String PARSERTIMER = "PARSER";
 
     //TEST
     // 不要修改访问级别
